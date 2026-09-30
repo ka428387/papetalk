@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ぱぺとーく（試作版）</title>
+<title>こえだけ（試作版）</title>
 <meta name="description" content="子どもの声はそのままに、顔は出さずに。動画の音声にキャラクターと字幕を付けて、縦長の動画にします。">
 <meta name="robots" content="noindex">
-<meta property="og:title" content="ぱぺとーく（試作版）">
+<meta property="og:title" content="こえだけ（試作版）">
 <meta property="og:description" content="子どもの声はそのままに、顔は出さずに。動画の音声にキャラクターと字幕を付けて、縦長の動画にします。">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -169,7 +169,7 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
 <body>
 <div class="wrap">
   <header>
-    <h1>ぱぺとーく</h1>
+    <h1>こえだけ</h1>
     <p>子どもの声はそのままに、顔は出さずに。</p>
     <span class="badge">試作版</span>
   </header>
@@ -308,18 +308,20 @@ const g = cv.getContext('2d');
 const video = document.getElementById('src');
 const $ = id => document.getElementById(id);
 
+// 2026-09-30 佳澄さん：一覧は ChatGPT の絵の くま・うさぎ・ねこ・ひよこ と、きもち の5つ。
+// おばけ・ほし・はーと・くも・おにぎり・ふたば・ほかの動物は控え。絵と描き方は残してあるので、ここに足せばまた選べる
 const CHARAS = [
-  {id:'obake',  name:'おばけ'},
   {id:'kuma',   name:'くま'},
   {id:'usagi',  name:'うさぎ'},
   {id:'neko',   name:'ねこ'},
   {id:'hiyoko', name:'ひよこ'},
   {id:'kimochi', name:'きもち'}
 ];
+const SHOW_ART = false;  // Codex 版（しぇるてぃ）も控え。true にすると一覧のうしろに並ぶ
 // Codex 版の絵（js/art.js）。読めなかったり形が違ったりしても、Claude 版だけで動くようにする
 const ART = (window.KoedakeArt && typeof window.KoedakeArt === 'object') ? window.KoedakeArt : {};
 const ART_CHARAS = Array.isArray(ART.charas) ? ART.charas.filter(ch => ch && typeof ch.id === 'string' && typeof ch.draw === 'function') : [];
-for (const ch of ART_CHARAS) CHARAS.push({id: ch.id, name: String(ch.name || ch.id), art: ch});
+if (SHOW_ART) for (const ch of ART_CHARAS) CHARAS.push({id: ch.id, name: String(ch.name || ch.id), art: ch});
 function artChara(id){ return ART_CHARAS.find(ch => ch.id === id); }
 // 「ないしょ」吹き出しの置き場所。Codex 版のキャラは secretAt: {x, y}（キャラの中心から見た位置）で変えられる
 function secretPos(ac){
@@ -339,7 +341,7 @@ const BGS = ['#BFE3F5','#FFE3A3','#CDEBC8','#F9D3D9','#DCD3F2'];
 const INK = '#25313B', HI = '#D94B3C';
 const FONT = '"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif';
 
-const state = { chara:'obake', bg:BGS[0], title:'', subs:[], beeps:[], trimStart:0, trimEnd:0 };
+const state = { chara:'kuma', bg:BGS[0], title:'', subs:[], beeps:[], trimStart:0, trimEnd:0 };
 let endResolver = null, playFrom = 0;
 // 作り方のタブ「こだわり」（字幕・親の声を消す・ないしょ）。「しんぷる」のときは画面に出さず、書き出しにも使わない。タイトルはどちらでも使える
 let proOn = false;
@@ -387,7 +389,74 @@ const dots = Array.from({length:18}, (_,i) => {
 
 function ellipse(c, x, y, rx, ry){ c.beginPath(); c.ellipse(x, y, Math.max(rx,.1), Math.max(ry,.1), 0, 0, Math.PI*2); }
 
+/* ---------- 画像のキャラ（2026-09-29 佳澄さんが ChatGPT で描いてもらった絵） ----------
+   ほし・はーと・くも・おにぎり・ふたば（assets/characters/original/、元は 元絵/original-v1-元.png）と、
+   ほし・はーと・くも・おにぎりは体を切り取った「顔だけ版」（*-face-v1、2026-09-29 佳澄さん）。体つきは 'hoshi-body' などで残してある。
+   顔だけ版の head は画像のまんなか（形ぜんたいが画面の中心に来るように）。
+   動物11匹（assets/characters/animals/、元は 元絵/animals-v3-元.png）。一覧に出しているのはひよこだけで、
+   くま・うさぎ・ねこ・いぬ・ぱんだ・かえる・ぺんぎん・こあら・ぶた・りすは控え（CHARAS に足せば選べる）。ぺんぎんは元の絵に口がないので、くちばしの下に描く。
+   画像は目と口を消した絵。目・口はここで上から描いて動かす。線の太さは口の幅（mw）に合わせて変える。
+   数字は画像のピクセル座標：head＝頭の中心と、r=200 のときに 200px になる長さ、eyes＝目の中心、eye＝目の半径、mouth＝口の中心、mw＝口の半分の幅 */
+const AN_SPEC = {
+  hoshi:   {dir:'original', file:'hoshi-face-v1', head:[154,130,112], eyes:[[111,150],[197.5,150]], eye:[11,15], mouth:[154,175.5], mw:14},
+  'hoshi-body':   {dir:'original', file:'hoshi-v1',   head:[156,174,138], eyes:[[113,152],[199.5,152]], eye:[11,15],   mouth:[156,177.5], mw:14},
+  heart:   {dir:'original', file:'heart-face-v1', head:[160,117,112], eyes:[[110,127.5],[209,127.5]], eye:[12,15.5], mouth:[158.5,154], mw:15},
+  'heart-body':   {dir:'original', file:'heart-v1',   head:[162.5,152.5,138], eyes:[[113,130.5],[212,130.5]], eye:[12,15.5], mouth:[161.5,157], mw:15},
+  kumo:    {dir:'original', file:'kumo-face-v1', head:[175,123,112], eyes:[[124.5,140.5],[220.5,140.5]], eye:[11.5,15.5], mouth:[172.5,168], mw:14.5},
+  'kumo-body':    {dir:'original', file:'kumo-v1',    head:[175.5,164.5,138], eyes:[[127.5,142.5],[223.5,142.5]], eye:[11.5,15.5], mouth:[175.5,170], mw:14.5},
+  onigiri: {dir:'original', file:'onigiri-face-v1', head:[154.5,122.5,112], eyes:[[104,140],[203,139.5]], eye:[12,16], mouth:[154,165.5], mw:14},
+  'onigiri-body': {dir:'original', file:'onigiri-v1', head:[155.5,165,138], eyes:[[106,143],[205,142.5]], eye:[12,16], mouth:[156,168.5], mw:14},
+  futaba:  {dir:'original', file:'futaba-v1',  head:[150,218.5,138], eyes:[[101.5,196.5],[199,196.5]], eye:[11.5,15.5], mouth:[150.5,222], mw:14.5},
+  kuma:    {file:'kuma-v3', head:[147.0,163.5,138], eyes:[[99.0,141.5],[195.0,141.5]], eye:[12.0,15.5], mouth:[147.0,194.0], mw:16.0},
+  usagi:   {file:'usagi-v3', head:[142.0,217.0,138], eyes:[[93.5,195.0],[190.5,195.0]], eye:[11.5,15.0], mouth:[141.5,244.5], mw:15.5},
+  neko:    {file:'neko-v3', head:[150.0,165.5,138], eyes:[[101.5,143.5],[198.5,143.5]], eye:[11.5,15.5], mouth:[149.0,193.5], mw:16.0},
+  hiyoko:  {file:'hiyoko-v3', head:[151.0,201.0,138], eyes:[[102.5,179.0],[199.5,179.0]], eye:[11.5,15.0], mouth:[150.0,232.5], mw:16.0},
+  inu:     {file:'inu-v3', head:[200.8,164.0,138], eyes:[[152.0,142.0],[249.5,142.0]], eye:[11.0,15.0], mouth:[200.0,192.0], mw:16.0},
+  panda:   {file:'panda-v3', head:[148.5,161.5,138], eyes:[[98.0,139.5],[199.0,139.5]], eye:[12.0,15.5], mouth:[148.5,181.5], mw:15.5},
+  kaeru:   {file:'kaeru-v3', head:[143.0,172.0,138], eyes:[[96.5,150.0],[189.5,150.0]], eye:[11.5,15.0], mouth:[141.5,186.5], mw:19.5},
+  pengin:  {file:'pengin-v3', head:[142.0,155.5,138], eyes:[[93.0,133.5],[191.0,133.0]], eye:[11.0,14.5], mouth:[142.0,173.0], mw:15.0},
+  koala:   {file:'koala-v3', head:[190.2,165.5,138], eyes:[[141.5,143.5],[239.0,143.5]], eye:[11.5,14.5], mouth:[189.5,193.0], mw:16.5},
+  buta:    {file:'buta-v3', head:[146.0,160.0,138], eyes:[[95.0,138.0],[197.0,137.5]], eye:[11.0,15.0], mouth:[146.0,191.0], mw:16.0},
+  risu:    {file:'risu-v3', head:[124.8,155.0,138], eyes:[[83.5,133.0],[166.0,133.0]], eye:[10.5,14.0], mouth:[124.5,173.0], mw:14.5},
+};
+const AN_IMG = {};
+const anReady = Promise.all(Object.keys(AN_SPEC).map(k => new Promise(res => {
+  const im = new Image(); im.onload = () => { AN_IMG[k] = im; res(); }; im.onerror = () => res(); const sp = AN_SPEC[k]; im.src = 'assets/characters/' + (sp.dir || 'animals') + '/' + sp.file + '.webp';
+})));
+function drawAnimal(c, kind, r, open, blink){
+  const sp = AN_SPEC[kind], im = AN_IMG[kind];
+  const [hx, hy, hr] = sp.head;
+  c.save(); c.scale(r/hr, r/hr); c.translate(-hx, -hy);
+  c.drawImage(im, 0, 0);
+  const k = sp.mw / 27.5;  // 線の太さの倍率（くまたちの絵が 1）
+  c.fillStyle = INK; c.strokeStyle = INK; c.lineCap = 'round'; c.lineJoin = 'round';
+  const [ew, eh] = sp.eye;
+  for (const [ex, ey] of sp.eyes){
+    if (blink < 0.5){
+      c.lineWidth = 7*k; c.beginPath(); c.moveTo(ex - ew, ey + 2*k); c.quadraticCurveTo(ex, ey + 12*k, ex + ew, ey + 2*k); c.stroke();
+    } else {
+      ellipse(c, ex, ey, ew, eh); c.fillStyle = INK; c.fill();
+      ellipse(c, ex + ew*0.3, ey - eh*0.35, ew*0.32, ew*0.32); c.fillStyle = '#fff'; c.fill();
+    }
+  }
+  const [mx, my] = sp.mouth, mw = sp.mw;
+  c.lineWidth = 6.5*k;
+  if (open < 0.06){
+    c.beginPath(); c.moveTo(mx - mw*0.95, my - 6*k); c.quadraticCurveTo(mx, my + mw*0.75, mx + mw*0.95, my - 6*k); c.stroke();
+  } else {
+    const rx = mw*(0.55 + open*0.35), ry = mw*(0.2 + open*1.0), cy = my - 4*k + ry*0.55;
+    c.save();
+    ellipse(c, mx, cy, rx, ry); c.fillStyle = '#7A2E36'; c.fill();
+    c.clip();
+    ellipse(c, mx, cy + ry*0.75, rx*0.8, ry*0.6); c.fillStyle = '#F07A8A'; c.fill();
+    c.restore();
+    ellipse(c, mx, cy, rx, ry); c.lineWidth = 5.5*k; c.stroke();
+  }
+  c.restore();
+}
+
 function drawChara(c, kind, cx, cy, r, open, blink){
+  if (AN_IMG[kind]){ c.save(); c.translate(cx, cy); drawAnimal(c, kind, r, open, blink); c.restore(); return; }
   const ac = artChara(kind);
   if (ac){ c.save(); c.translate(cx, cy); drawArt(c, ac, {r, open, level:open, blink, now:performance.now()/1000, hush:false, thumb:true}); c.restore(); return; }
   if (kind === 'obake'){ drawObakeThumb(c, cx, cy, r); return; }
@@ -524,7 +593,7 @@ function drawSecret(c, x, y, now){
   c.restore(); c.textAlign = 'start';
 }
 
-/* ---------- おばけ（ぱぺとーくの口パクキャラ） ----------
+/* ---------- おばけ（こえだけの口パクキャラ） ----------
    papetalk-character/prototype.html と同じ動き（2026-09-25 取り込み）。数字や順番は試作のまま。
    違うのは：音は動画から取る（マイク・お試しの動きはない）、動画が止まっている間は試作の「待機・一時停止」、
    「ないしょ」「おとなの声」で消している間は声なしとして扱う、画面の大きさは本番の 720×1280 */
@@ -814,7 +883,7 @@ function render(now, t, level, inBeep){
   if (sub) drawText(g, sub.text, 1090, 64, 620, 'bottom');
 
   g.font = `700 24px ${FONT}`; g.textBaseline = 'middle'; g.fillStyle = 'rgba(37,49,59,0.45)';
-  g.textAlign = 'center'; g.fillText('ぱぺとーく', W/2, H - 44); g.textAlign = 'start';
+  g.textAlign = 'center'; g.fillText('こえだけ', W/2, H - 44); g.textAlign = 'start';
 }
 
 /* ---------- loop ---------- */
@@ -876,6 +945,7 @@ function buildCharas(){
     const cc = c.getContext('2d');
     cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144);
     drawChara(cc, ch.id, 72, 76, 44, 0, 1);
+    if (AN_SPEC[ch.id]) anReady.then(() => { cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
     if (ch.id === 'obake') obReady.then(() => { cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
     if (ch.art) Promise.resolve(ART.ready).catch(()=>{}).then(() => { cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
     b.append(c, document.createTextNode(ch.name));
@@ -1461,7 +1531,7 @@ function fbText(){
   const v = id => $(id).value.trim();
   const freq = document.querySelector('input[name=fbFreq]:checked');
   const made = v('fbMade'), sent = v('fbSent');
-  return '【ぱぺとーく 感想】\n'
+  return '【こえだけ 感想】\n'
     + '1. 子ども：' + (v('fbKids') || '－') + '\n'
     + '2. 作った：' + (made || '－') + '本（SNS・LINEに送った：' + (sent || '－') + '本）\n'
     + '3. 迷ったところ：' + (v('fbHard') || '－') + '\n'
@@ -1510,7 +1580,7 @@ async function exportVideo(){
   const mime = pickMime();
   if (!mime || !cv.captureStream){ msg('このブラウザは動画の書き出しに対応していません。最新のChromeかSafariで試してください。'); return; }
   ensureAudio(); if (actx.state === 'suspended') await actx.resume();
-  try { await ART.ready; await obReady; } catch(e){}  // Codex 版の画像を読み終えてから録画する
+  try { await ART.ready; await obReady; await anReady; } catch(e){}  // Codex 版の画像を読み終えてから録画する
   video.pause();
   if (Math.abs(video.currentTime - state.trimStart) > 0.01){ video.currentTime = state.trimStart; await once(video, 'seeked'); }
   const vs = cv.captureStream(30);
@@ -1562,11 +1632,11 @@ async function nativeShare(blob, ext){
   const {uri} = await fs('getUri', {path:name});
   try { await cap.nativePromise('Share', 'share', {files:[uri]}); } catch(e){}  // 共有メニューを閉じたときもここに来る
 }
-// 同じ日に何本作っても名前がぶつからないよう、日本の日付＋時刻（秒まで）を付ける。例：papetalk-20260924-141530.mp4
+// 同じ日に何本作っても名前がぶつからないよう、日本の日付＋時刻（秒まで）を付ける。例：koedake-20260924-141530.mp4
 function fileName(ext){
   const d = new Date(), p = n => String(n).padStart(2, '0');
   const stamp = `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
-  return 'papetalk-' + stamp + '.' + ext;
+  return 'koedake-' + stamp + '.' + ext;
 }
 // スマホは共有シート（iPhoneは「ビデオを保存」、LINEなど）、PCはダウンロード
 function canShareFile(blob, ext){

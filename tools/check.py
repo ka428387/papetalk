@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ぱぺとーく 公開前チェック。
+"""こえだけ 公開前チェック。
 
   python3 tools/check.py                 … 構文と art.js の約束を確かめる
   python3 tools/check.py --codex <ブランチ> … 上に加えて、origin/main からの変更が Codex の担当（js/art.js と assets/）だけか確かめる
