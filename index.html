@@ -60,7 +60,7 @@ dialog.shop::backdrop{background:rgba(22,32,41,.55)}
 dialog.shop h2{margin:0 0 8px;font-size:1.25rem}
 dialog.shop ul{margin:10px 0 16px;padding-left:1.2em}
 dialog.shop .col{display:flex;flex-direction:column;gap:10px}
-dialog.shop #shopMsg{min-height:1.5em;margin:10px 0 0;font-size:.88rem;color:var(--muted)}
+dialog.shop #shopMsg,dialog.shop .shopMsg{min-height:1.5em;margin:10px 0 0;font-size:.88rem;color:var(--muted)}
 .badge{font-size:.75rem;border:1.5px solid var(--line);border-radius:999px;padding:1px 10px;color:var(--muted)}
 .layout{display:grid;gap:24px}
 @media(min-width:880px){
@@ -268,6 +268,7 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
         <div class="plan" id="plan" hidden>
           <p id="planNote"></p>
           <button id="planBtn">完全版を見る</button>
+          <button id="tipBtn">♡ 応援する</button>
         </div>
         <div class="row">
           <button class="primary" id="exportBtn" disabled>動画を書き出す</button>
@@ -327,6 +328,13 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
       <button id="shopClose">とじる</button>
     </div>
     <p id="shopMsg" role="status"></p>
+  </dialog>
+  <dialog class="shop" id="tip" aria-labelledby="tipTitle">
+    <h2 id="tipTitle">こえだけを応援する</h2>
+    <p>気に入っていただけたら、応援してもらえるとうれしいです。応援しても、しなくても、使える機能は同じです。</p>
+    <div class="col" id="tipList"></div>
+    <div class="col" style="margin-top:10px"><button id="tipClose">とじる</button></div>
+    <p class="shopMsg" id="tipMsg" role="status"></p>
   </dialog>
 </div>
 
@@ -1661,19 +1669,19 @@ const inApp = () => hasNative('Filesystem') && hasNative('Share');
 if (inApp()){ document.documentElement.classList.add('inapp'); document.title = 'こえだけ'; }
 
 /* ---------- 完全版（アプリだけ。2026-09-30） ----------
-   無料：月 SHOP.FREE 本まで・透かし入り。完全版（買い切り）：何本でも・透かしなし。
+   無料：月 SHOP.FREE 本まで・透かし入り。完全版（買い切り）：何本でも・透かしなし。投げ銭（SHOP.TIPS）はお礼の言葉だけ。
    ウェブ版は今までどおり（本数の上限なし・透かし入り）。買う処理は iPhone 側の KoedakeStore.swift（StoreKit 2）。
    作った本数は月ごとにこの端末だけに記録する。書き出しを途中でやめた分は数えない。
    確認用：localhost で ?shop=test を付けると、ブラウザでもアプリの無料版のつもりで動く（買うとその場で完全版になる） */
 const SHOP = {
-  ID: 'com.ka428387.koedake.full', FREE: 3, KEY: 'koedake-quota', price: '',
+  ID: 'com.ka428387.koedake.full', FREE: 2, TIPS: ['com.ka428387.koedake.tip1','com.ka428387.koedake.tip2','com.ka428387.koedake.tip3'], KEY: 'koedake-quota', price: '',
   mode: hasNative('KoedakeStore') ? 'native' : (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]shop=test/.test(location.search)) ? 'test' : 'web'
 };
 async function shopCall(m, o){
   if (SHOP.mode === 'native') return cap.nativePromise('KoedakeStore', m, o || {});
   const full = () => ({full: sessionStorage.getItem('koedake-test-full') === '1'});
-  if (m === 'products') return {products:[{id:SHOP.ID, price:'¥480', name:'完全版'}]};
-  if (m === 'purchase'){ sessionStorage.setItem('koedake-test-full', '1'); return {status:'success'}; }
+  if (m === 'products') return {products:[{id:SHOP.ID, price:'¥480', name:'完全版'}].concat(SHOP.TIPS.map((id, i) => ({id, price:['¥160','¥480','¥980'][i], name:''}))).filter(x => o.ids.includes(x.id))};
+  if (m === 'purchase'){ if (o.id === SHOP.ID) sessionStorage.setItem('koedake-test-full', '1'); return {status:'success'}; }
   return full();
 }
 function shopMonth(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2, '0'); }
@@ -1709,6 +1717,31 @@ function openShop(limit){
 }
 if (SHOP.mode !== 'web'){
   $('planBtn').onclick = () => openShop(false);
+  // 投げ銭（何度でも）。お礼の品はなく、機能も変わらない
+  const TIP_NAMES = ['ちょっと応援', '応援', 'たっぷり応援'];
+  $('tipClose').onclick = () => $('tip').close();
+  $('tipBtn').onclick = () => {
+    $('tipMsg').textContent = ''; $('tip').showModal();
+    if ($('tipList').children.length) return;
+    shopCall('products', {ids: SHOP.TIPS}).then(r => {
+      const list = SHOP.TIPS.map(id => (r.products || []).find(x => x.id === id)).filter(Boolean);
+      if (!list.length){ $('tipMsg').textContent = 'お店につながりませんでした。時間をおいて試してください。'; return; }
+      for (const pr of list){
+        const b = document.createElement('button');
+        b.className = 'primary'; b.textContent = TIP_NAMES[SHOP.TIPS.indexOf(pr.id)] + '（' + pr.price + '）';
+        b.onclick = async () => {
+          $('tipMsg').textContent = ''; for (const x of $('tipList').children) x.disabled = true;
+          try {
+            const res = await shopCall('purchase', {id: pr.id});
+            if (res.status === 'success') $('tipMsg').textContent = 'ありがとうございます。とても励みになります。';
+            if (res.status === 'pending') $('tipMsg').textContent = '承認を待っています。';
+          } catch(e){ $('tipMsg').textContent = '送れませんでした。時間をおいて試してください。'; }
+          for (const x of $('tipList').children) x.disabled = false;
+        };
+        $('tipList').appendChild(b);
+      }
+    }).catch(() => { $('tipMsg').textContent = 'お店につながりませんでした。時間をおいて試してください。'; });
+  };
   $('shopClose').onclick = () => $('shop').close();
   $('shopBuy').onclick = async () => {
     $('shopBuy').disabled = true; $('shopMsg').textContent = '';
