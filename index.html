@@ -50,6 +50,17 @@ body:not(.pro-on) .pro{display:none}
 .modeNote{margin:0 0 12px 4px;font-size:.8rem;color:var(--muted)}
 /* iPhoneアプリの中では「試作版」の札と、友人向けの感想コーナーを出さない（App Store 用。2026-09-30） */
 .inapp .badge,.inapp #feedback,.inapp .fbHint{display:none}
+/* 完全版（アプリだけ）：無料の残り本数と、買う画面 */
+.plan{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;background:var(--field);border:1.5px solid var(--line);border-radius:16px;font-size:.88rem}
+.plan[hidden]{display:none}
+.plan p{margin:0;flex:1 1 180px}
+.plan button{padding:6px 14px;font-size:.85rem}
+dialog.shop{border:none;border-radius:22px;padding:22px 20px;max-width:min(92vw,400px);background:var(--card);color:var(--ink);box-shadow:0 10px 40px rgba(0,0,0,.25)}
+dialog.shop::backdrop{background:rgba(22,32,41,.55)}
+dialog.shop h2{margin:0 0 8px;font-size:1.25rem}
+dialog.shop ul{margin:10px 0 16px;padding-left:1.2em}
+dialog.shop .col{display:flex;flex-direction:column;gap:10px}
+dialog.shop #shopMsg{min-height:1.5em;margin:10px 0 0;font-size:.88rem;color:var(--muted)}
 .badge{font-size:.75rem;border:1.5px solid var(--line);border-radius:999px;padding:1px 10px;color:var(--muted)}
 .layout{display:grid;gap:24px}
 @media(min-width:880px){
@@ -254,6 +265,10 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
       <section class="step">
         <h2><span class="num" id="exportNum">4</span>動画にして保存</h2>
         <p class="hint">縦長（9:16）の動画にします。書き出しは動画の長さと同じだけ時間がかかります。そのあいだ画面を開いたままにしてください。</p>
+        <div class="plan" id="plan" hidden>
+          <p id="planNote"></p>
+          <button id="planBtn">完全版を見る</button>
+        </div>
         <div class="row">
           <button class="primary" id="exportBtn" disabled>動画を書き出す</button>
           <button id="cancelBtn" style="display:none">書き出しをやめる</button>
@@ -298,6 +313,21 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
     </div>
   </div>
   <video id="src" class="srcVideo" playsinline preload="auto"></video>
+  <dialog class="shop" id="shop" aria-labelledby="shopTitle">
+    <h2 id="shopTitle">こえだけ 完全版</h2>
+    <p id="shopLead"></p>
+    <ul>
+      <li>動画を何本でも作れます</li>
+      <li>動画の下の「こえだけ」の文字が消えます</li>
+      <li>一度買えば、ずっと使えます（月額ではありません）</li>
+    </ul>
+    <div class="col">
+      <button class="primary" id="shopBuy" disabled>値段を確かめています…</button>
+      <button id="shopRestore">前に買った人はこちら（購入を復元）</button>
+      <button id="shopClose">とじる</button>
+    </div>
+    <p id="shopMsg" role="status"></p>
+  </dialog>
 </div>
 
 <script src="js/art.js"></script>
@@ -343,6 +373,7 @@ const BGS = ['#BFE3F5','#FFE3A3','#CDEBC8','#F9D3D9','#DCD3F2'];
 const INK = '#25313B', HI = '#D94B3C';
 const FONT = '"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif';
 
+let fullVersion = false;  // 完全版を持っている（アプリだけ）。下の「完全版」の節で決まる
 const state = { chara:'kuma', bg:BGS[0], title:'', subs:[], beeps:[], trimStart:0, trimEnd:0 };
 let endResolver = null, playFrom = 0;
 // 作り方のタブ「こだわり」（字幕・親の声を消す・ないしょ）。「しんぷる」のときは画面に出さず、書き出しにも使わない。タイトルはどちらでも使える
@@ -884,8 +915,10 @@ function render(now, t, level, inBeep){
   const sub = proOn && state.subs.find(s => !s.adult && t >= s.start && t < s.end);
   if (sub) drawText(g, sub.text, 1090, 64, 620, 'bottom');
 
-  g.font = `700 24px ${FONT}`; g.textBaseline = 'middle'; g.fillStyle = 'rgba(37,49,59,0.45)';
-  g.textAlign = 'center'; g.fillText('こえだけ', W/2, H - 44); g.textAlign = 'start';
+  if (!fullVersion){  // 完全版では透かしを出さない
+    g.font = `700 24px ${FONT}`; g.textBaseline = 'middle'; g.fillStyle = 'rgba(37,49,59,0.45)';
+    g.textAlign = 'center'; g.fillText('こえだけ', W/2, H - 44); g.textAlign = 'start';
+  }
 }
 
 /* ---------- loop ---------- */
@@ -1579,6 +1612,7 @@ function once(el, ev){ return new Promise(r => el.addEventListener(ev, r, {once:
 
 async function exportVideo(){
   if (!hasMedia || exporting) return;
+  if (!shopCanExport()){ openShop(true); return; }
   const mime = pickMime();
   if (!mime || !cv.captureStream){ msg('このブラウザは動画の書き出しに対応していません。最新のChromeかSafariで試してください。'); return; }
   ensureAudio(); if (actx.state === 'suspended') await actx.resume();
@@ -1613,7 +1647,7 @@ async function exportVideo(){
   const type = mime.split(';')[0];
   lastBlob = new Blob(chunks, {type});
   lastExt = type.includes('mp4') ? 'mp4' : 'webm';
-  bump('made');
+  bump('made'); shopCount();
   const url = URL.createObjectURL(lastBlob);
   $('resultVideo').src = url;
   $('result').style.display = 'block';
@@ -1625,6 +1659,79 @@ const cap = window.Capacitor;
 const hasNative = n => !!(cap && cap.nativePromise && (cap.PluginHeaders || []).some(h => h.name === n));
 const inApp = () => hasNative('Filesystem') && hasNative('Share');
 if (inApp()){ document.documentElement.classList.add('inapp'); document.title = 'こえだけ'; }
+
+/* ---------- 完全版（アプリだけ。2026-09-30） ----------
+   無料：月 SHOP.FREE 本まで・透かし入り。完全版（買い切り）：何本でも・透かしなし。
+   ウェブ版は今までどおり（本数の上限なし・透かし入り）。買う処理は iPhone 側の KoedakeStore.swift（StoreKit 2）。
+   作った本数は月ごとにこの端末だけに記録する。書き出しを途中でやめた分は数えない。
+   確認用：localhost で ?shop=test を付けると、ブラウザでもアプリの無料版のつもりで動く（買うとその場で完全版になる） */
+const SHOP = {
+  ID: 'com.ka428387.koedake.full', FREE: 3, KEY: 'koedake-quota', price: '',
+  mode: hasNative('KoedakeStore') ? 'native' : (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]shop=test/.test(location.search)) ? 'test' : 'web'
+};
+async function shopCall(m, o){
+  if (SHOP.mode === 'native') return cap.nativePromise('KoedakeStore', m, o || {});
+  const full = () => ({full: sessionStorage.getItem('koedake-test-full') === '1'});
+  if (m === 'products') return {products:[{id:SHOP.ID, price:'¥480', name:'完全版'}]};
+  if (m === 'purchase'){ sessionStorage.setItem('koedake-test-full', '1'); return {status:'success'}; }
+  return full();
+}
+function shopMonth(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2, '0'); }
+function shopUsed(){
+  try { const q = JSON.parse(localStorage.getItem(SHOP.KEY)) || {}; return q.ym === shopMonth() ? (q.n|0) : 0; } catch(e){ return 0; }
+}
+function shopLeft(){ return Math.max(0, SHOP.FREE - shopUsed()); }
+function shopCanExport(){ return SHOP.mode === 'web' || fullVersion || shopLeft() > 0; }
+function shopCount(){
+  if (SHOP.mode === 'web' || fullVersion) return;
+  try { localStorage.setItem(SHOP.KEY, JSON.stringify({ym: shopMonth(), n: shopUsed() + 1})); } catch(e){}
+  shopPaint();
+}
+function shopPaint(){
+  if (SHOP.mode === 'web') return;
+  $('plan').hidden = false;
+  $('planBtn').style.display = fullVersion ? 'none' : '';
+  $('planNote').textContent = fullVersion ? '完全版です。何本でも作れます。'
+    : shopLeft() ? '無料版：今月はあと ' + shopLeft() + ' 本作れます（月' + SHOP.FREE + '本まで）'
+    : '無料版：今月の ' + SHOP.FREE + ' 本を作りました。来月また作れます。';
+}
+function shopSet(st){ fullVersion = !!(st && st.full); shopPaint(); }
+function openShop(limit){
+  $('shopLead').textContent = limit ? '無料版で作れるのは月' + SHOP.FREE + '本までです。今月の分は作り終わりました。来月になるとまた作れます。'
+    : '無料版は月' + SHOP.FREE + '本まで作れます。';
+  $('shopMsg').textContent = '';
+  $('shop').showModal();
+  if (!SHOP.price) shopCall('products', {ids:[SHOP.ID]}).then(r => {
+    const pr = (r.products || []).find(x => x.id === SHOP.ID);
+    if (pr){ SHOP.price = pr.price; $('shopBuy').textContent = '完全版を買う（' + pr.price + '）'; $('shopBuy').disabled = false; }
+    else { $('shopBuy').textContent = 'いまは買えません'; $('shopMsg').textContent = 'お店につながりませんでした。時間をおいて試してください。'; }
+  }).catch(() => { $('shopBuy').textContent = 'いまは買えません'; $('shopMsg').textContent = 'お店につながりませんでした。時間をおいて試してください。'; });
+}
+if (SHOP.mode !== 'web'){
+  $('planBtn').onclick = () => openShop(false);
+  $('shopClose').onclick = () => $('shop').close();
+  $('shopBuy').onclick = async () => {
+    $('shopBuy').disabled = true; $('shopMsg').textContent = '';
+    try {
+      const r = await shopCall('purchase', {id: SHOP.ID});
+      if (r.status === 'success'){ shopSet(await shopCall('status')); $('shopMsg').textContent = 'ありがとうございます。完全版になりました。'; $('shopBuy').textContent = '完全版です'; return; }
+      if (r.status === 'pending') $('shopMsg').textContent = '承認を待っています。承認されると完全版になります。';
+    } catch(e){ $('shopMsg').textContent = '買えませんでした。時間をおいて試してください。'; }
+    $('shopBuy').disabled = false;
+  };
+  $('shopRestore').onclick = async () => {
+    $('shopMsg').textContent = '確かめています…';
+    try {
+      const st = await shopCall('restore'); shopSet(st);
+      $('shopMsg').textContent = st.full ? '完全版に戻りました。' : '完全版を買った記録は見つかりませんでした。';
+      if (st.full){ $('shopBuy').textContent = '完全版です'; $('shopBuy').disabled = true; }
+    } catch(e){ $('shopMsg').textContent = '確かめられませんでした。時間をおいて試してください。'; }
+  };
+  shopPaint();
+  shopCall('status').then(shopSet).catch(() => {});
+  // 承認待ちが通ったときなどのために、アプリに戻ってきたら確かめ直す
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && !exporting) shopCall('status').then(shopSet).catch(() => {}); });
+}
 const blobB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(b); });
 // アプリ：一時フォルダに書き出して共有メニューへ（「ビデオを保存」・LINE・インスタなど）
 async function nativeShare(blob, ext){
