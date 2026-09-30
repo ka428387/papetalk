@@ -48,6 +48,8 @@ body:not(.pro-on) .pro{display:none}
 .modeTabs button{border:none;background:transparent;border-radius:999px;padding:8px 0;font-size:.95rem;font-weight:500;color:var(--muted);opacity:.7}
 .modeTabs button[aria-selected="true"]{background:var(--tabOn);color:var(--ink);font-weight:900;opacity:1;box-shadow:0 1px 4px rgba(37,49,59,.12)}
 .modeNote{margin:0 0 12px 4px;font-size:.8rem;color:var(--muted)}
+/* iPhoneアプリの中では「試作版」の札と、友人向けの感想コーナーを出さない（App Store 用。2026-09-30） */
+.inapp .badge,.inapp #feedback,.inapp .fbHint{display:none}
 .badge{font-size:.75rem;border:1.5px solid var(--line);border-radius:999px;padding:1px 10px;color:var(--muted)}
 .layout{display:grid;gap:24px}
 @media(min-width:880px){
@@ -261,7 +263,7 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
         <div id="result">
           <video id="resultVideo" controls playsinline></video>
           <p class="row" style="margin-top:10px"><button class="primary" id="saveBtn">保存する</button></p>
-          <p class="hint" style="margin-top:10px">使ってみた感想は、このページのいちばん下からLINEで送れます。</p>
+          <p class="hint fbHint" style="margin-top:10px">使ってみた感想は、このページのいちばん下からLINEで送れます。</p>
         </div>
       </section>
 
@@ -1622,6 +1624,7 @@ async function exportVideo(){
 const cap = window.Capacitor;
 const hasNative = n => !!(cap && cap.nativePromise && (cap.PluginHeaders || []).some(h => h.name === n));
 const inApp = () => hasNative('Filesystem') && hasNative('Share');
+if (inApp()){ document.documentElement.classList.add('inapp'); document.title = 'こえだけ'; }
 const blobB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(b); });
 // アプリ：一時フォルダに書き出して共有メニューへ（「ビデオを保存」・LINE・インスタなど）
 async function nativeShare(blob, ext){
