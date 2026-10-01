@@ -485,7 +485,7 @@ function drawAnimal(c, kind, r, open, blink){
   if (open < 0.06){
     c.beginPath(); c.moveTo(mx - mw*0.95, my - 6*k); c.quadraticCurveTo(mx, my + mw*0.75, mx + mw*0.95, my - 6*k); c.stroke();
   } else {
-    const rx = mw*(0.55 + open*0.35), ry = mw*(0.2 + open*1.0), cy = my - 4*k + ry*0.55;
+    const rx = mw*(0.8 + open*0.6), ry = mw*(0.25 + open*1.75), cy = my - 4*k + ry*0.55;  // 最初の試作（くま r=200：横 0.1〜0.16r・縦 0.03〜0.23r）と同じ大きさ
     c.save();
     ellipse(c, mx, cy, rx, ry); c.fillStyle = '#7A2E36'; c.fill();
     c.clip();
