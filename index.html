@@ -14,8 +14,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#EEF4F8; --ink:#25313B; --muted:#5C6B77; --card:#FFFFFF; --line:#D6E1E9;
-  --field:#F5F8FA; --sun:#FFC93C; --tabOn:#FFE9AE; --coral:#D94B3C; --focus:#2E7FB8;
+  /* 2026-10-04 新しい見た目：たまご色×こげ茶（佳澄さんが4案から選んだ。前は水色＋黄色＋紺） */
+  --bg:#FAF8F5; --ink:#4A3B36; --muted:#857670; --card:#FFFFFF; --line:#E9E1D9;
+  --field:#F5F1EC; --sun:#F4CF6E; --tabOn:#FBEDC4; --coral:#C0704F; --focus:#2E7FB8;
   color-scheme:light;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
@@ -23,13 +24,13 @@
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#162029; --ink:#E8F0F5; --muted:#9DB0BE; --card:#1F2B35; --line:#33434F;
-    --field:#18232C; --tabOn:#4A4128; --coral:#FF7F70; --focus:#7CC1F0; color-scheme:dark;
+    --bg:#221D1A; --ink:#F1E8E2; --muted:#B3A399; --card:#2C2622; --line:#433A34;
+    --field:#27211D; --tabOn:#4D4128; --coral:#E39A7E; --focus:#7CC1F0; color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#162029; --ink:#E8F0F5; --muted:#9DB0BE; --card:#1F2B35; --line:#33434F;
-  --field:#18232C; --tabOn:#4A4128; --coral:#FF7F70; --focus:#7CC1F0; color-scheme:dark;
+  --bg:#221D1A; --ink:#F1E8E2; --muted:#B3A399; --card:#2C2622; --line:#433A34;
+  --field:#27211D; --tabOn:#4D4128; --coral:#E39A7E; --focus:#7CC1F0; color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -46,7 +47,7 @@ body:not(.pro-on) .pro{display:none}
 /* 作り方のタブ：しんぷる／こだわり。選んでいる方はやさしい黄色、選んでいない方は薄い灰色の文字で、ひと目で違いがわかるように */
 .modeTabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--field);border:1.5px solid var(--line);border-radius:999px;margin:-8px 0 6px;max-width:420px}
 .modeTabs button{border:none;background:transparent;border-radius:999px;padding:8px 0;font-size:.95rem;font-weight:500;color:var(--muted);opacity:.7}
-.modeTabs button[aria-selected="true"]{background:var(--tabOn);color:var(--ink);font-weight:900;opacity:1;box-shadow:0 1px 4px rgba(37,49,59,.12)}
+.modeTabs button[aria-selected="true"]{background:var(--tabOn);color:var(--ink);font-weight:900;opacity:1;box-shadow:0 1px 4px rgba(74,59,54,.12)}
 .modeNote{margin:0 0 12px 4px;font-size:.8rem;color:var(--muted)}
 /* iPhoneアプリの中では「試作版」の札と、友人向けの感想コーナーを出さない（App Store 用。2026-09-30） */
 .inapp .badge,.inapp #feedback,.inapp .fbHint{display:none}
@@ -71,12 +72,12 @@ dialog.shop #shopMsg,dialog.shop .shopMsg{min-height:1.5em;margin:10px 0 0;font-
 .side{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(100%,340px)}
 .sizeBtn{display:none}
 #stage{display:block;height:min(604px,calc(100vh - 170px));min-height:320px;width:auto;max-width:100%;aspect-ratio:9/16;border-radius:28px;
-  background:#BFE3F5;box-shadow:0 14px 34px rgba(37,49,59,.18)}
+  background:#F8EEF5;box-shadow:0 14px 34px rgba(74,59,54,.18)}
 @media(max-width:879px){
   /* 上に貼りつくのは時計の下から。時計の下の余白を常に空けておくと、いちばん上のときに大きな空白になる */
-  .stageCol{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin:0 -16px;padding:8px 16px 8px;box-shadow:0 8px 12px -10px rgba(37,49,59,.35);
+  .stageCol{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin:0 -16px;padding:8px 16px 8px;box-shadow:0 8px 12px -10px rgba(74,59,54,.35);
     flex-direction:row;justify-content:center;align-items:center;gap:12px}
-  #stage{width:auto;height:min(20vh,170px);min-height:0;border-radius:14px;box-shadow:0 4px 12px rgba(37,49,59,.16);flex:none}
+  #stage{width:auto;height:min(20vh,170px);min-height:0;border-radius:14px;box-shadow:0 4px 12px rgba(74,59,54,.16);flex:none}
   .stageCol.big #stage{height:min(40vh,360px)}
   /* 大きく見るときは、プレビューの下に操作を並べる（横に置くと再生バーがとても短くなる） */
   .stageCol.big{flex-direction:column;gap:8px}
@@ -101,25 +102,25 @@ dialog.shop #shopMsg,dialog.shop .shopMsg{min-height:1.5em;margin:10px 0 0;font-
 .trimmer{position:relative;height:76px;margin:6px 22px 0;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
 #wave{position:absolute;inset:0;width:100%;height:100%;border-radius:10px;background:var(--field)}
 .waveLoad{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;padding:6px 14px;font-size:.85rem;background:var(--card);white-space:nowrap}
-.dim{position:absolute;top:0;bottom:0;background:rgba(37,49,59,.5);pointer-events:none}
+.dim{position:absolute;top:0;bottom:0;background:rgba(74,59,54,.5);pointer-events:none}
 #dimL{left:0;border-radius:10px 0 0 10px}
 #dimR{right:0;border-radius:0 10px 10px 0}
 .sel{position:absolute;top:-4px;bottom:-4px;border:4px solid var(--sun);border-left-width:20px;border-right-width:20px;border-radius:12px;cursor:grab;box-sizing:border-box}
 .sel:active{cursor:grabbing}
 .h{position:absolute;top:-4px;bottom:-4px;width:34px;cursor:ew-resize;touch-action:none}
 .h.l{left:-27px}.h.r{right:-27px}
-.h::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:24px;margin:-12px 0 0 -2px;border-radius:2px;background:#25313B}
+.h::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:24px;margin:-12px 0 0 -2px;border-radius:2px;background:#4A3B36}
 .ph{position:absolute;top:-8px;bottom:-8px;width:3px;margin-left:-1.5px;background:var(--coral);border-radius:2px;pointer-events:none;z-index:2}
 details summary{list-style-position:inside}
 .sep{color:var(--muted);font-size:.85rem}
 .privacy{width:min(100%,340px);font-size:.8rem;color:var(--muted);margin:0}
 section.step{background:var(--card);border:1.5px solid var(--line);border-radius:22px;padding:18px 18px 20px;margin-bottom:16px}
 .step h2{display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:1.15rem;font-weight:700}
-.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--sun);color:#25313B;font-size:.9rem;font-weight:900;flex:none}
+.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--sun);color:#4A3B36;font-size:.9rem;font-weight:900;flex:none}
 .hint{margin:0 0 12px;color:var(--muted);font-size:.88rem}
 button,.btn{font:inherit;font-weight:700;border:none;border-radius:999px;padding:10px 18px;cursor:pointer;
   background:var(--field);color:var(--ink);border:1.5px solid var(--line)}
-button.primary,.btn.primary{background:var(--sun);color:#25313B;border-color:transparent}
+button.primary,.btn.primary{background:var(--sun);color:#4A3B36;border-color:transparent}
 button:disabled{opacity:.45;cursor:not-allowed}
 button:focus-visible,input:focus-visible,.btn:focus-within,.chara:focus-visible,.swatch:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 .play{width:46px;height:46px;padding:0;display:grid;place-items:center;flex:none}
@@ -243,7 +244,7 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
       </section>
 
       <section class="step">
-        <h2><span class="num">2</span>キャラクターと背景</h2>
+        <h2><span class="num">2</span>背景とタイトル</h2>
         <div class="charas" id="charas" role="group" aria-label="キャラクター"></div>
         <div class="swatches" id="swatches" role="group" aria-label="背景の色"></div>
         <label class="field">上に出すタイトル（なくてもOK）
@@ -339,6 +340,7 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
 </div>
 
 <script src="js/art.js"></script>
+<script src="js/obake2-layout.js"></script>
 <script>
 (() => {
 const W = 720, H = 1280;
@@ -350,12 +352,9 @@ const $ = id => document.getElementById(id);
 
 // 2026-09-30 佳澄さん：一覧は ChatGPT の絵の くま・うさぎ・ねこ・ひよこ と、きもち の5つ。
 // おばけ・ほし・はーと・くも・おにぎり・ふたば・ほかの動物は控え。絵と描き方は残してあるので、ここに足せばまた選べる
+// 新しい見た目の試作（2026-10-04 佳澄さん）：キャラは新しいおばけだけ。ほかのキャラの描き方は残してある
 const CHARAS = [
-  {id:'kuma',   name:'くま'},
-  {id:'usagi',  name:'うさぎ'},
-  {id:'neko',   name:'ねこ'},
-  {id:'hiyoko', name:'ひよこ'},
-  {id:'kimochi', name:'きもち'}
+  {id:'obake2', name:'おばけ'}
 ];
 const SHOW_ART = false;  // Codex 版（しぇるてぃ）も控え。true にすると一覧のうしろに並ぶ
 // Codex 版の絵（js/art.js）。読めなかったり形が違ったりしても、Claude 版だけで動くようにする
@@ -377,12 +376,13 @@ function drawArt(c, ch, v){
   catch(e){ if (!artErrShown){ console.error('art.js の描画でエラー:', ch.id, e); artErrShown = true; } }
   c.restore();
 }
-const BGS = ['#BFE3F5','#FFE3A3','#CDEBC8','#F9D3D9','#DCD3F2'];
-const INK = '#25313B', HI = '#D94B3C';
+// 新しい見た目（2026-10-04）：淡い1色。床の影はなし（佳澄さん）
+const BGS = ['#F8EEF5','#EEF4F8','#F6F2EA','#EEF4EC','#F1EEF7'];
+const INK = '#4B4245', HI = '#D9677F';
 const FONT = '"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif';
 
 let fullVersion = false;  // 完全版を持っている（アプリだけ）。下の「完全版」の節で決まる
-const state = { chara:'kuma', bg:BGS[0], title:'', subs:[], beeps:[], trimStart:0, trimEnd:0 };
+const state = { chara:'obake2', bg:BGS[0], title:'', subs:[], beeps:[], trimStart:0, trimEnd:0 };
 let endResolver = null, playFrom = 0;
 // 作り方のタブ「こだわり」（字幕・親の声を消す・ないしょ）。「しんぷる」のときは画面に出さず、書き出しにも使わない。タイトルはどちらでも使える
 let proOn = false;
@@ -392,7 +392,7 @@ function setPro(on){
   document.body.classList.toggle('pro-on', proOn);
   $('exportNum').textContent = proOn ? '4' : '3';
   $('tabSimple').setAttribute('aria-selected', !proOn); $('tabPro').setAttribute('aria-selected', proOn);
-  $('modeNote').textContent = proOn ? '字幕を付けたり、声を消したりもできます' : '動画とキャラを選んで、書き出すだけ';
+  $('modeNote').textContent = proOn ? '字幕を付けたり、声を消したりもできます' : '動画と背景を選んで、書き出すだけ';
 }
 let hasMedia = false, exporting = false, cancelExport = false;
 let lastBlob = null, lastExt = 'mp4';
@@ -888,8 +888,125 @@ function drawKimochi(c, now, level){
   c.restore();
 }
 
+
+/* ---------- 新しいおばけ（2026-10-04 新しい見た目の試作。../index.html の動き確認版と同じ動き） ----------
+   パーツは assets/characters/obake2/（おばけちゃん/アニメ用パーツ から）、配置は js/obake2-layout.js。
+   声の大きさは自動で慣らす。口：小さい声＝小、大きい声＝大、黙る＝ω。大きな声（ふだんの1.8倍が0.15秒）で
+   ^ ^ の目＋右手を上げてふる＋きらきら。一度ふったら5秒はふらない（佳澄さん「回数をへらしたい」） */
+const OB2_L = window.OBAKE_LAYOUT;
+const OB2_SIZE = 0.34;                 // 体の幅＝画面の幅の 34%
+const OB2_BASE_Y = H * 0.585;          // 体の底の位置
+const OB2_CX = 205, OB2_BOTTOM = 447;  // body.png の体の中心・底
+const OB2_NAMES = ['body','eyes_open','eyes_closed','eyes_half','mouth_closed','mouth_small','mouth_large','mouth_smile',
+  'arm_down','arm_down_right','arm_up','arm_front','shadow','sparkle','motion_lines'];
+const OB2_IMG = {};
+const ob2Ready = Promise.all(OB2_NAMES.map(n => new Promise(res => {
+  const im = new Image(); im.onload = res; im.onerror = res; im.src = 'assets/characters/obake2/' + n + '.png'; OB2_IMG[n] = im;
+})));
+const ob2 = { t:0, lastMs:0, noise:.004, speech:.05, level:0, smooth:0, loudFor:0,
+  excite:0, exciteHold:0, cool:0, talk:0, mouth:'mouth_closed', mouthHold:0, blinkAt:2, blinking:0,
+  lift:0, hop:0, hopV:0, armWave:0 };
+// ms：時刻（ミリ秒）、rms：今の声の大きさ（止まっている・消している間は 0）
+function ob2Step(ms, rms){
+  const dt = ob2.lastMs ? Math.min(.05, Math.max(0, (ms - ob2.lastMs)/1000)) : 0; ob2.lastMs = ms;
+  ob2.t += dt;
+  // 声の大きさを 0..1 に（録音ごとの大きさの違いを吸収）
+  ob2.noise = rms < ob2.noise ? ob2.noise + (rms - ob2.noise)*Math.min(1, dt*8) : ob2.noise + (rms - ob2.noise)*dt*.05;
+  const span = Math.max(.015, ob2.speech*2.0 - ob2.noise);
+  const norm = Math.max(0, Math.min(1, (rms - ob2.noise*1.4)/span));
+  if (norm > .15 && rms < ob2.speech*2.5) ob2.speech += (rms - ob2.speech)*dt*.6;
+  const k = norm > ob2.level ? .55 : .18;
+  ob2.level += (norm - ob2.level)*Math.min(1, k*dt*60);
+  ob2.smooth += (rms - ob2.smooth)*Math.min(1, dt*10);
+  ob2.loudFor = ob2.smooth > Math.max(.04, ob2.speech*1.8) ? ob2.loudFor + dt : 0;
+  const loud = ob2.loudFor > .15;
+  if (loud && ob2.exciteHold > 0) ob2.exciteHold = Math.max(ob2.exciteHold, .8);
+  else if (loud && ob2.cool <= 0){ ob2.exciteHold = 1.4; ob2.cool = 1.4 + 5; ob2.hopV = -260; }
+  ob2.exciteHold = Math.max(0, ob2.exciteHold - dt);
+  ob2.cool = Math.max(0, ob2.cool - dt);
+  ob2.excite += ((ob2.exciteHold > 0 ? 1 : 0) - ob2.excite)*Math.min(1, dt*6);
+  const lv = ob2.level;
+  ob2.talk += ((lv > .12 ? 1 : 0) - ob2.talk)*Math.min(1, dt*(lv > .12 ? 5 : 1.2));
+  const want = lv > .62 ? 'mouth_large' : lv > .12 ? 'mouth_small' : (ob2.excite > .3 ? 'mouth_smile' : 'mouth_closed');
+  ob2.mouthHold -= dt;
+  if (want !== ob2.mouth && ob2.mouthHold <= 0){ ob2.mouth = want; ob2.mouthHold = .07; }
+  if (ob2.t > ob2.blinkAt){ ob2.blinking = .12; ob2.blinkAt = ob2.t + 2.2 + Math.random()*3; if (Math.random() < .2) ob2.blinkAt = ob2.t + .25; }
+  ob2.blinking = Math.max(0, ob2.blinking - dt);
+  ob2.lift += ((lv*16 + ob2.excite*8) - ob2.lift)*Math.min(1, dt*5);
+  ob2.hopV += 1400*dt; ob2.hop += ob2.hopV*dt;
+  if (ob2.hop > 0){ ob2.hop = 0; ob2.hopV = 0; }
+  ob2.armWave += dt*(ob2.excite > .4 ? 9 : 4);
+}
+function ob2Spec(n){ const L = OB2_L; return n === 'body' ? L.body : (L.eyes[n] || L.mouth[n] || L.arms[n] || L.effects[n]); }
+function ob2Part(c, n){
+  const s = ob2Spec(n), im = OB2_IMG[n]; if (!im || !im.width) return;
+  c.save(); c.translate(s.cx ?? (s.x + s.w/2), s.cy ?? (s.y + s.h/2)); c.rotate((s.rotate || 0)*Math.PI/180);
+  c.drawImage(im, -im.width/2, -im.height/2); c.restore();
+}
+function ob2Arm(c, n, ang){
+  const s = OB2_L.arms[n], im = OB2_IMG[n]; if (!im || !im.width) return;
+  c.save(); c.translate(s.x + s.pivot[0], s.y + s.pivot[1]); c.rotate(ang); c.drawImage(im, -s.pivot[0], -s.pivot[1]); c.restore();
+}
+function ob2Effect(c, n, x, y, scale, alpha){
+  const im = OB2_IMG[n]; if (!im || !im.width || alpha <= .01) return;
+  c.save(); c.globalAlpha = alpha; c.translate(x, y); c.scale(scale, scale); c.drawImage(im, -im.width/2, -im.height/2); c.restore();
+}
+function drawObake2(c){
+  if (!OB2_IMG.body || !OB2_IMG.body.width) return;
+  const S = W*OB2_SIZE/OB2_L.body.w;
+  const up = Math.sin(ob2.t*1.7)*7 + ob2.lift - ob2.hop;
+  c.save(); c.translate(W/2, OB2_BASE_Y); c.scale(S, S);
+  // 影（浮くと小さく薄く）
+  const sh = OB2_L.effects.shadow, k = 1 - Math.max(0, up)*.006;
+  c.save(); c.translate(sh.cx - OB2_CX, sh.cy - OB2_BOTTOM); c.scale(k, k); c.globalAlpha = Math.max(.4, k);
+  c.drawImage(OB2_IMG.shadow, -OB2_IMG.shadow.width/2, -OB2_IMG.shadow.height/2); c.restore();
+  c.translate(0, -up);
+  c.rotate(Math.sin(ob2.t*.9)*.02);
+  const st = ob2.level*.03; c.scale(1 - st*.5, 1 + st);
+  c.translate(-OB2_CX, -OB2_BOTTOM);
+  c.drawImage(OB2_IMG.body, 0, 0);
+  ob2Part(c, ob2.excite > .5 ? 'eyes_closed' : ob2.blinking > 0 ? 'eyes_half' : 'eyes_open');
+  ob2Part(c, ob2.mouth);
+  ob2Arm(c, 'arm_down', Math.sin(ob2.t*1.7 + .6)*.05);
+  if (ob2.excite > .4) ob2Arm(c, 'arm_up', Math.sin(ob2.armWave)*.22 - .05);
+  else if (ob2.talk > .5) ob2Arm(c, 'arm_front', Math.sin(ob2.armWave)*.12);
+  else ob2Arm(c, 'arm_down_right', -Math.sin(ob2.t*1.7 + .6)*.05);
+  const e = ob2.excite;
+  ob2Effect(c, 'sparkle', 20, 30, .75 + .25*e + Math.sin(ob2.t*10)*.03*e, e);
+  if (e > .4) ob2Effect(c, 'motion_lines', 515 + Math.sin(ob2.armWave)*6, 200, .9, Math.min(1, (e - .4)*2.5));
+  c.restore();
+}
+// 字幕とタイトル：枠も縁取りもない、小さめの文字（* で囲んだところは色を変える）
+function drawSoftText(c, text, y, size, maxW, color){
+  if (!text) return;
+  c.font = `500 ${size}px ${FONT}`;
+  c.textBaseline = 'middle';
+  const gap = size*.12;
+  const lines = layoutChars(c, parseMarked(text), maxW);
+  const lh = size*1.45;
+  let yy = y;
+  for (const ln of lines){
+    const tw = ln.reduce((a,b) => a + b.w + gap, 0) - gap;
+    let x = (W - tw)/2;
+    for (const ch of ln){ c.fillStyle = ch.hi ? HI : color; c.fillText(ch.c, x, yy); x += ch.w + gap; }
+    yy += lh;
+  }
+}
+
 function render(now, t, level, inBeep){
   g.fillStyle = state.bg; g.fillRect(0,0,W,H);
+  if (state.chara === 'obake2'){
+    // 新しい見た目：背景は1色だけ。タイトルは上に小さく、字幕はおばけの下に小さく
+    drawSoftText(g, state.title, 250, 38, 560, 'rgba(75,66,69,.75)');
+    drawObake2(g);
+    const sub = proOn && state.subs.find(s => !s.adult && t >= s.start && t < s.end);
+    if (sub) drawSoftText(g, sub.text, OB2_BASE_Y + W*OB2_SIZE*.48 + 70, 46, 560, INK);
+    if (!fullVersion){
+      g.font = `500 22px ${FONT}`; g.textBaseline = 'middle'; g.fillStyle = 'rgba(75,66,69,0.32)';
+      g.textAlign = 'center'; g.fillText('こえだけ', W/2, H - 44); g.textAlign = 'start';
+    }
+    return;
+  }
   g.fillStyle = 'rgba(255,255,255,0.4)';
   for (const d of dots){ ellipse(g, d.x, d.y, d.r, d.r); g.fill(); }
 
@@ -924,7 +1041,7 @@ function render(now, t, level, inBeep){
   if (sub) drawText(g, sub.text, 1090, 64, 620, 'bottom');
 
   if (!fullVersion){  // 完全版では透かしを出さない
-    g.font = `700 24px ${FONT}`; g.textBaseline = 'middle'; g.fillStyle = 'rgba(37,49,59,0.45)';
+    g.font = `700 24px ${FONT}`; g.textBaseline = 'middle'; g.fillStyle = 'rgba(75,66,69,0.45)';
     g.textAlign = 'center'; g.fillText('こえだけ', W/2, H - 44); g.textAlign = 'start';
   }
 }
@@ -945,11 +1062,12 @@ function frameBody(ms){
     if (endResolver){ const r = endResolver; endResolver = null; r(); }
   }
   if (stopAt !== null && !video.paused && t >= stopAt){ video.pause(); stopAt = null; }
-  let target = 0, pitch = 0;
+  let target = 0, pitch = 0, rmsNow = 0;
   if (actx && !video.paused){
     analyser.getFloatTimeDomainData(tbuf);
     let s = 0; for (let i=0;i<tbuf.length;i++) s += tbuf[i]*tbuf[i];
     const rms = Math.sqrt(s/tbuf.length);
+    rmsNow = rms;
     target = Math.min(1, Math.max(0, (rms - 0.012) * 7));
     if (!scanning && liveOn()) addLive(t, rms);
     if (target > 0.08 && !scanning && (state.chara === 'kimochi' || (!pcm16 && pitchSum))){
@@ -970,6 +1088,7 @@ function frameBody(ms){
   }
   if (state.chara === 'kimochi') updateKimochi(now, target, pitch, inBeep);
   if (state.chara === 'obake') obStep(ms, hasMedia && !video.paused && !scanning, mute);
+  if (state.chara === 'obake2') ob2Step(ms, (mute || scanning) ? 0 : rmsNow);
   render(now, t, level, inBeep);
   if (!seeking) $('seek').value = t;
   $('timeLbl').textContent = fmt(t);
@@ -981,7 +1100,8 @@ function fmt(t){ const m = Math.floor(t/60), s = t - m*60; return m + ':' + (s<1
 /* ---------- UI ---------- */
 function buildCharas(){
   const box = $('charas');
-  for (const ch of CHARAS){
+  if (CHARAS.length <= 1) box.style.display = 'none';
+  else for (const ch of CHARAS){
     const b = document.createElement('button');
     b.className = 'chara'; b.type = 'button'; b.setAttribute('aria-pressed', ch.id === state.chara);
     const c = document.createElement('canvas'); c.width = 144; c.height = 144;
