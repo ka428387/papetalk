@@ -1795,7 +1795,9 @@ if (inApp()){ document.documentElement.classList.add('inapp'); document.title = 
    確認用：localhost で ?shop=test を付けると、ブラウザでもアプリの無料版のつもりで動く（買うとその場で完全版になる） */
 const SHOP = {
   ID: 'com.ka428387.koedake.full', FREE: 2, TIPS: ['com.ka428387.koedake.tip1','com.ka428387.koedake.tip2','com.ka428387.koedake.tip3'], KEY: 'koedake-quota', price: '',
-  mode: hasNative('KoedakeStore') ? 'native' : (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]shop=test/.test(location.search)) ? 'test' : 'web'
+  // KoedakeStore は MainViewController の capacitorDidLoad で後から登録するので PluginHeaders に載らない（2026-10-05 判明）。
+  // アプリの中（Filesystem と Share がある）なら課金の部品もあるものとして扱う。nativePromise は一覧に載っていなくても届く
+  mode: (hasNative('KoedakeStore') || inApp()) ? 'native' : (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]shop=test/.test(location.search)) ? 'test' : 'web'
 };
 async function shopCall(m, o){
   if (SHOP.mode === 'native') return cap.nativePromise('KoedakeStore', m, o || {});
