@@ -178,18 +178,16 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
 .kbd{background:var(--field);border:1px solid var(--line);border-radius:6px;padding:0 5px;font-size:.85em}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 .srcVideo{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:0}
-/* ---------- かわいい見た目（2026-10-05 試作。絵は ChatGPT、assets/ui/。参考は「みてね」と ChatGPT が描いたストアのスクショ）----------
-   ページの白い地に水彩のにじみを散らし、すみからおばけがのぞく。作業の枠は少し透けて、にじみがうっすら見える */
+/* ---------- かわいい見た目（2026-10-05。絵は ChatGPT、assets/ui/。参考は「みてね」と ChatGPT が描いたストアのスクショ）----------
+   ページの白い地に水彩のにじみ・きらきらを散らす。作業の枠は少し透けて、にじみがうっすら見える。
+   すみからのぞくおばけ（obake-corner-*.webp）は、ほかのキャラも増やす予定なので出さない（佳澄さん） */
 .deco{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .deco img,.wrap > .dk{position:absolute;display:block;pointer-events:none;user-select:none;-webkit-user-select:none}
-.wrap{position:relative;z-index:1;padding-bottom:150px}
+.wrap{position:relative;z-index:1;padding-bottom:96px}
 section.step{background:rgba(255,255,255,.84)}
 @media(max-width:879px){ .stageCol{background:rgba(255,255,255,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)} }
-header{position:relative;padding-right:74px}
+header{position:relative}
 header p{word-break:keep-all}
-.dk.peekTR{top:-20px;right:-16px;width:76px}
-.dk.peekBL{left:-16px;bottom:calc(0px - env(safe-area-inset-bottom,0px));width:150px}
-@media(min-width:880px){ .dk.peekTR{width:96px} .dk.peekBL{width:200px} }
 :root[data-theme="dark"] .deco{opacity:.35}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .deco{opacity:.35}
   :root:not([data-theme="light"]) section.step{background:var(--card)} }
@@ -217,15 +215,12 @@ header p{word-break:keep-all}
   <img src="assets/ui/blob-purple.webp" alt="" style="left:30%;bottom:-150px;width:260px;opacity:.4">
 </div>
 <div class="wrap">
-  <img class="dk peekTR" src="assets/ui/obake-corner-tr.webp" alt="" aria-hidden="true">
-  <img class="dk" src="assets/ui/deco-wa.webp" alt="" aria-hidden="true" style="right:66px;top:4px;width:26px;transform:scaleX(-1)">
   <img class="dk" src="assets/ui/deco-kira1.webp" alt="" aria-hidden="true" style="left:176px;top:6px;width:22px">
   <img class="dk" src="assets/ui/deco-kira5.webp" alt="" aria-hidden="true" style="left:198px;top:30px;width:12px">
-  <img class="dk peekBL" src="assets/ui/obake-corner-bl.webp" alt="" aria-hidden="true">
-  <img class="dk" src="assets/ui/deco-heart.webp" alt="" aria-hidden="true" style="left:150px;bottom:92px;width:26px;transform:rotate(-12deg)">
-  <img class="dk" src="assets/ui/deco-kira2.webp" alt="" aria-hidden="true" style="left:184px;bottom:58px;width:20px">
-  <img class="dk" src="assets/ui/deco-note.webp" alt="" aria-hidden="true" style="right:40px;bottom:70px;width:26px">
-  <img class="dk" src="assets/ui/deco-kira4.webp" alt="" aria-hidden="true" style="right:80px;bottom:110px;width:20px">
+  <img class="dk" src="assets/ui/deco-heart.webp" alt="" aria-hidden="true" style="left:40px;bottom:40px;width:26px;transform:rotate(-12deg)">
+  <img class="dk" src="assets/ui/deco-kira2.webp" alt="" aria-hidden="true" style="left:84px;bottom:22px;width:20px">
+  <img class="dk" src="assets/ui/deco-note.webp" alt="" aria-hidden="true" style="right:40px;bottom:34px;width:26px">
+  <img class="dk" src="assets/ui/deco-kira4.webp" alt="" aria-hidden="true" style="right:80px;bottom:62px;width:20px">
   <header>
     <h1>こえだけ</h1>
     <p>子どもの声はそのままに、<wbr>顔は出さずに。</p>
