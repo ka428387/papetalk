@@ -211,6 +211,7 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
       <section class="step">
         <h2><span class="num">1</span>動画を選ぶ</h2>
         <p class="hint">スマホで撮った動画をそのまま選べます。長い動画でも、このあと使う部分だけ選べます。動画はこの端末の中だけで処理され、どこにも送信されません。</p>
+        <p class="hint">選ぶ画面で動画を長押しすると、中身を再生して確かめられます。</p>
         <span class="btn primary filebtn">動画を選ぶ<input type="file" id="file" accept="video/*,audio/*"></span>
         <span class="fileName" id="fileName"></span>
         <p class="stepMsg" id="loadMsg" role="status"></p>
@@ -320,7 +321,7 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
     <p id="shopLead"></p>
     <ul>
       <li>動画を何本でも作れます</li>
-      <li>動画の下の「こえだけ」の文字が消えます</li>
+      <li>動画の下の「こえだけ で作ったよ」の札が消えます</li>
       <li>一度買えば、ずっと使えます（月額ではありません）</li>
     </ul>
     <div class="col">
@@ -947,6 +948,12 @@ function ob2Arm(c, n, ang){
   const s = OB2_L.arms[n], im = OB2_IMG[n]; if (!im || !im.width) return;
   c.save(); c.translate(s.x + s.pivot[0], s.y + s.pivot[1]); c.rotate(ang); c.drawImage(im, -s.pivot[0], -s.pivot[1]); c.restore();
 }
+// 左右反転した腕（arm_up_left など。画像は flipped_from の腕を裏返して使う）
+function ob2ArmFlip(c, n, ang){
+  const s = OB2_L.arms[n], im = s && OB2_IMG[s.flipped_from]; if (!im || !im.width) return;
+  c.save(); c.translate(s.x + s.pivot[0], s.y + s.pivot[1]); c.rotate(ang); c.scale(-1, 1);
+  c.drawImage(im, s.pivot[0] - im.width, -s.pivot[1]); c.restore();
+}
 function ob2Effect(c, n, x, y, scale, alpha){
   const im = OB2_IMG[n]; if (!im || !im.width || alpha <= .01) return;
   c.save(); c.globalAlpha = alpha; c.translate(x, y); c.scale(scale, scale); c.drawImage(im, -im.width/2, -im.height/2); c.restore();
@@ -967,13 +974,19 @@ function drawObake2(c){
   c.drawImage(OB2_IMG.body, 0, 0);
   ob2Part(c, ob2.excite > .5 ? 'eyes_closed' : ob2.blinking > 0 ? 'eyes_half' : 'eyes_open');
   ob2Part(c, ob2.mouth);
-  ob2Arm(c, 'arm_down', Math.sin(ob2.t*1.7 + .6)*.05);
+  // 大きな声のときは両手を上げてふる（2026-10-05 佳澄さん。左手は右手の鏡うつし）
+  if (ob2.excite > .4) ob2ArmFlip(c, 'arm_up_left', -(Math.sin(ob2.armWave)*.22 - .05));
+  else ob2Arm(c, 'arm_down', Math.sin(ob2.t*1.7 + .6)*.05);
   if (ob2.excite > .4) ob2Arm(c, 'arm_up', Math.sin(ob2.armWave)*.22 - .05);
   else if (ob2.talk > .5) ob2Arm(c, 'arm_front', Math.sin(ob2.armWave)*.12);
   else ob2Arm(c, 'arm_down_right', -Math.sin(ob2.t*1.7 + .6)*.05);
   const e = ob2.excite;
   ob2Effect(c, 'sparkle', 20, 30, .75 + .25*e + Math.sin(ob2.t*10)*.03*e, e);
-  if (e > .4) ob2Effect(c, 'motion_lines', 515 + Math.sin(ob2.armWave)*6, 200, .9, Math.min(1, (e - .4)*2.5));
+  if (e > .4){
+    const ml = Math.min(1, (e - .4)*2.5), wob = Math.sin(ob2.armWave)*6;
+    ob2Effect(c, 'motion_lines', 515 + wob, 200, .9, ml);
+    c.save(); c.translate(432, 0); c.scale(-1, 1); ob2Effect(c, 'motion_lines', 515 + wob, 200, .9, ml); c.restore();  // 左手の線（左右の腕の真ん中 x=216 で反転）
+  }
   c.restore();
 }
 // 字幕とタイトル：枠も縁取りもない、小さめの文字（* で囲んだところは色を変える）
@@ -1001,10 +1014,7 @@ function render(now, t, level, inBeep){
     drawObake2(g);
     const sub = proOn && state.subs.find(s => !s.adult && t >= s.start && t < s.end);
     if (sub) drawSoftText(g, sub.text, OB2_BASE_Y + W*OB2_SIZE*.48 + 70, 46, 560, INK);
-    if (!fullVersion){
-      g.font = `500 22px ${FONT}`; g.textBaseline = 'middle'; g.fillStyle = 'rgba(75,66,69,0.32)';
-      g.textAlign = 'center'; g.fillText('こえだけ', W/2, H - 44); g.textAlign = 'start';
-    }
+    if (!fullVersion) drawWatermark(g);  // 完全版では透かしを出さない
     return;
   }
   g.fillStyle = 'rgba(255,255,255,0.4)';
@@ -1040,10 +1050,38 @@ function render(now, t, level, inBeep){
   const sub = proOn && state.subs.find(s => !s.adult && t >= s.start && t < s.end);
   if (sub) drawText(g, sub.text, 1090, 64, 620, 'bottom');
 
-  if (!fullVersion){  // 完全版では透かしを出さない
-    g.font = `700 24px ${FONT}`; g.textBaseline = 'middle'; g.fillStyle = 'rgba(75,66,69,0.45)';
-    g.textAlign = 'center'; g.fillText('こえだけ', W/2, H - 44); g.textAlign = 'start';
+  if (!fullVersion) drawWatermark(g);  // 完全版では透かしを出さない
+}
+
+// 透かし（無料版）：白い札に小さなおばけ＋「こえだけ で作ったよ」。見た人がアプリの名前だと分かるように
+// （2026-10-05 佳澄さんが 課金の見本/ の4案から D を選んだ）。おばけは止まった姿を一度だけ描いて、余白を切って使う
+let wmIcon = null;
+function watermarkIcon(){
+  if (wmIcon) return wmIcon;
+  if (!['body','eyes_open','mouth_closed','arm_down','arm_down_right'].every(n => OB2_IMG[n] && OB2_IMG[n].width)) return null;
+  const P = 80, c = document.createElement('canvas'); c.width = OB2_L.body.w + P*2; c.height = OB2_L.body.h + P*2;
+  const x = c.getContext('2d'); x.translate(P, P);
+  x.drawImage(OB2_IMG.body, 0, 0); ob2Part(x, 'eyes_open'); ob2Part(x, 'mouth_closed');
+  ob2Arm(x, 'arm_down', 0); ob2Arm(x, 'arm_down_right', 0);
+  const a = x.getImageData(0, 0, c.width, c.height).data;
+  let l = c.width, t = c.height, r = 0, b = 0;
+  for (let yy = 0; yy < c.height; yy++) for (let xx = 0; xx < c.width; xx++){
+    if (a[(yy*c.width + xx)*4 + 3] > 8){ if (xx < l) l = xx; if (xx > r) r = xx; if (yy < t) t = yy; if (yy > b) b = yy; }
   }
+  if (r <= l) return null;
+  wmIcon = {c, x:l, y:t, w:r - l + 1, h:b - t + 1};
+  return wmIcon;
+}
+function drawWatermark(c){
+  const txt = 'こえだけ で作ったよ', ic = watermarkIcon();
+  c.save();
+  c.font = `700 30px ${FONT}`; c.textBaseline = 'middle'; c.textAlign = 'left';
+  const tw = c.measureText(txt).width, ih = 50, iw = ic ? ih*ic.w/ic.h : 0, gap = ic ? 12 : 0;
+  const ph = 74, pw = 44 + iw + gap + tw, px = (W - pw)/2, py = H - 60 - ph/2;
+  c.fillStyle = 'rgba(255,255,255,0.88)'; c.beginPath(); c.roundRect(px, py, pw, ph, ph/2); c.fill();
+  if (ic) c.drawImage(ic.c, ic.x, ic.y, ic.w, ic.h, px + 22, py + (ph - ih)/2, iw, ih);
+  c.fillStyle = INK; c.fillText(txt, px + 22 + iw + gap, py + ph/2 + 1);
+  c.restore();
 }
 
 /* ---------- loop ---------- */
@@ -1823,11 +1861,11 @@ function shopPaint(){
   $('planBtn').style.display = fullVersion ? 'none' : '';
   $('planNote').textContent = fullVersion ? '完全版です。何本でも作れます。'
     : shopLeft() ? '無料版：今月はあと ' + shopLeft() + ' 本作れます（月' + SHOP.FREE + '本まで）'
-    : '無料版：今月の ' + SHOP.FREE + ' 本を作りました。来月また作れます。';
+    : '無料版：今月の ' + SHOP.FREE + ' 本を作り終えました。来月1日になると、また作れます。';
 }
 function shopSet(st){ fullVersion = !!(st && st.full); shopPaint(); }
 function openShop(limit){
-  $('shopLead').textContent = limit ? '無料版で作れるのは月' + SHOP.FREE + '本までです。今月の分は作り終わりました。来月になるとまた作れます。'
+  $('shopLead').textContent = limit ? '今月の無料の' + SHOP.FREE + '本を作り終えました。来月1日になると、また作れます。'
     : '無料版は月' + SHOP.FREE + '本まで作れます。';
   $('shopMsg').textContent = '';
   $('shop').showModal();
