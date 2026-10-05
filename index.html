@@ -178,13 +178,57 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
 .kbd{background:var(--field);border:1px solid var(--line);border-radius:6px;padding:0 5px;font-size:.85em}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
 .srcVideo{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:0}
+/* ---------- かわいい見た目（2026-10-05 試作。絵は ChatGPT、assets/ui/。参考は「みてね」と ChatGPT が描いたストアのスクショ）----------
+   ページの白い地に水彩のにじみを散らし、すみからおばけがのぞく。作業の枠は少し透けて、にじみがうっすら見える */
+.deco{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.deco img,.wrap > .dk{position:absolute;display:block;pointer-events:none;user-select:none;-webkit-user-select:none}
+.wrap{position:relative;z-index:1;padding-bottom:150px}
+section.step{background:rgba(255,255,255,.84)}
+@media(max-width:879px){ .stageCol{background:rgba(255,255,255,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)} }
+header{position:relative;padding-right:74px}
+header p{word-break:keep-all}
+.dk.peekTR{top:-20px;right:-16px;width:76px}
+.dk.peekBL{left:-16px;bottom:calc(0px - env(safe-area-inset-bottom,0px));width:150px}
+@media(min-width:880px){ .dk.peekTR{width:96px} .dk.peekBL{width:200px} }
+:root[data-theme="dark"] .deco{opacity:.35}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .deco{opacity:.35}
+  :root:not([data-theme="light"]) section.step{background:var(--card)} }
+:root[data-theme="dark"] section.step{background:var(--card)}
+/* 課金の窓：上におばけ、ふちに水彩のにじみ、箇条書きは黄色の丸にチェック */
+#shop{overflow:visible;background:var(--field);padding-top:84px;margin-top:max(96px,calc(50vh - 260px))}
+#shop .shopArt{position:absolute;left:50%;top:-78px;transform:translateX(-50%);width:200px;pointer-events:none}
+#shop::before,#shop::after{content:"";position:absolute;z-index:-1;background:center/contain no-repeat;pointer-events:none}
+#shop::before{left:-26px;top:22px;width:110px;height:96px;background-image:url(assets/ui/blob-pink.webp);opacity:.6}
+#shop::after{right:-22px;bottom:-18px;width:120px;height:96px;background-image:url(assets/ui/blob-blue.webp);opacity:.7}
+#shop h2{text-align:center;font-size:1.3rem}
+#shop #shopLead{text-align:center;margin:0 0 4px}
+#shop ul{list-style:none;padding:0;margin:12px 0 18px}
+#shop li{position:relative;padding-left:30px;margin:6px 0}
+#shop li::before{content:"✓";position:absolute;left:0;top:.2em;width:20px;height:20px;border-radius:50%;background:var(--sun);color:#1A1A1A;font-size:.72rem;font-weight:900;display:grid;place-items:center}
+#shop .kira{position:absolute;pointer-events:none}
 </style>
 </head>
 <body>
+<div class="deco" aria-hidden="true">
+  <img src="assets/ui/blob-yellow.webp" alt="" style="left:-120px;top:-90px;width:300px;opacity:.55">
+  <img src="assets/ui/blob-blue.webp" alt="" style="right:-130px;top:34%;width:260px;opacity:.5">
+  <img src="assets/ui/blob-pink.webp" alt="" style="left:-140px;top:62%;width:280px;opacity:.5">
+  <img src="assets/ui/blob-mint.webp" alt="" style="right:-110px;bottom:-60px;width:300px;opacity:.5">
+  <img src="assets/ui/blob-purple.webp" alt="" style="left:30%;bottom:-150px;width:260px;opacity:.4">
+</div>
 <div class="wrap">
+  <img class="dk peekTR" src="assets/ui/obake-corner-tr.webp" alt="" aria-hidden="true">
+  <img class="dk" src="assets/ui/deco-wa.webp" alt="" aria-hidden="true" style="right:66px;top:4px;width:26px;transform:scaleX(-1)">
+  <img class="dk" src="assets/ui/deco-kira1.webp" alt="" aria-hidden="true" style="left:176px;top:6px;width:22px">
+  <img class="dk" src="assets/ui/deco-kira5.webp" alt="" aria-hidden="true" style="left:198px;top:30px;width:12px">
+  <img class="dk peekBL" src="assets/ui/obake-corner-bl.webp" alt="" aria-hidden="true">
+  <img class="dk" src="assets/ui/deco-heart.webp" alt="" aria-hidden="true" style="left:150px;bottom:92px;width:26px;transform:rotate(-12deg)">
+  <img class="dk" src="assets/ui/deco-kira2.webp" alt="" aria-hidden="true" style="left:184px;bottom:58px;width:20px">
+  <img class="dk" src="assets/ui/deco-note.webp" alt="" aria-hidden="true" style="right:40px;bottom:70px;width:26px">
+  <img class="dk" src="assets/ui/deco-kira4.webp" alt="" aria-hidden="true" style="right:80px;bottom:110px;width:20px">
   <header>
     <h1>こえだけ</h1>
-    <p>子どもの声はそのままに、顔は出さずに。</p>
+    <p>子どもの声はそのままに、<wbr>顔は出さずに。</p>
     <span class="badge">試作版</span>
   </header>
   <div class="modeTabs" role="tablist" aria-label="作り方">
@@ -317,6 +361,8 @@ button.line{background:#06C755;color:#fff;border-color:transparent}
   </div>
   <video id="src" class="srcVideo" playsinline preload="auto"></video>
   <dialog class="shop" id="shop" aria-labelledby="shopTitle">
+    <img class="shopArt" id="shopArt" src="assets/ui/obake-present.webp" alt="" aria-hidden="true">
+    <img class="kira" src="assets/ui/deco-kira3.webp" alt="" aria-hidden="true" style="right:16px;top:14px;width:22px">
     <h2 id="shopTitle">こえだけ 完全版</h2>
     <p id="shopLead"></p>
     <ul>
@@ -1868,6 +1914,7 @@ function openShop(limit){
   $('shopLead').textContent = limit ? '今月の無料の' + SHOP.FREE + '本を作り終えました。来月1日になると、また作れます。'
     : '無料版は月' + SHOP.FREE + '本まで作れます。';
   $('shopMsg').textContent = '';
+  $('shopArt').src = limit ? 'assets/ui/obake-wave.webp' : 'assets/ui/obake-present.webp';  // 作り終えたときは手をふるおばけ
   $('shop').showModal();
   if (!SHOP.price) shopCall('products', {ids:[SHOP.ID]}).then(r => {
     const pr = (r.products || []).find(x => x.id === SHOP.ID);
