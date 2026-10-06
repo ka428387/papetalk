@@ -56,6 +56,8 @@ body:not(.pro-on) .pro{display:none}
 .plan[hidden]{display:none}
 .plan p{margin:0;flex:1 1 180px}
 .plan button{padding:6px 14px;font-size:.85rem}
+.plan .keepLogo{flex:1 1 100%;display:flex;align-items:center;gap:8px;color:var(--muted)}
+.plan .keepLogo[hidden]{display:none}
 dialog.shop{border:none;border-radius:22px;padding:22px 20px;max-width:min(92vw,400px);background:var(--card);color:var(--ink);box-shadow:0 10px 40px rgba(0,0,0,.25)}
 dialog.shop::backdrop{background:rgba(22,32,41,.55)}
 dialog.shop h2{margin:0 0 8px;font-size:1.25rem}
@@ -311,6 +313,7 @@ header p{word-break:keep-all}
         <div class="plan" id="plan" hidden>
           <p id="planNote"></p>
           <button id="planBtn">完全版を見る</button>
+          <label class="keepLogo" id="keepLogoRow" hidden><input type="checkbox" id="keepLogo"> 動画に「こえだけ で作ったよ」を入れる</label>
           <!-- 応援する（投げ銭）は 2026-10-05 佳澄さんの希望で出さない。仕組みと App Store の商品は残してある。戻すときは hidden を外す --><button id="tipBtn" hidden>♡ 応援する</button>
         </div>
         <div class="row">
@@ -426,6 +429,8 @@ const INK = '#4B4245', HI = '#D9677F';
 const FONT = '"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans",sans-serif';
 
 let fullVersion = false;  // 完全版を持っている（アプリだけ）。下の「完全版」の節で決まる
+// 完全版でも透かしを入れる（宣伝に使う人向け。ふつうはオフ。この端末だけに覚える。2026-10-06 佳澄さん）
+let keepLogo = false; try { keepLogo = localStorage.getItem('koedake-keep-logo') === '1'; } catch(e){}
 const state = { chara:'obake2', bg:BGS[0], title:'', subs:[], beeps:[], trimStart:0, trimEnd:0 };
 let endResolver = null, playFrom = 0;
 // 作り方のタブ「こだわり」（字幕・親の声を消す・ないしょ）。「しんぷる」のときは画面に出さず、書き出しにも使わない。タイトルはどちらでも使える
@@ -1057,7 +1062,7 @@ function render(now, t, level, inBeep){
     drawObake2(g);
     const sub = proOn && state.subs.find(s => !s.adult && t >= s.start && t < s.end);
     if (sub) drawSoftText(g, sub.text, OB2_BASE_Y + W*OB2_SIZE*.48 + 70, 46, 560, INK);
-    if (!fullVersion) drawWatermark(g);  // 完全版では透かしを出さない
+    if (!fullVersion || keepLogo) drawWatermark(g);  // 完全版では透かしを出さない（「ロゴを入れる」を選んだときだけ出す）
     return;
   }
   g.fillStyle = 'rgba(255,255,255,0.4)';
@@ -1093,7 +1098,7 @@ function render(now, t, level, inBeep){
   const sub = proOn && state.subs.find(s => !s.adult && t >= s.start && t < s.end);
   if (sub) drawText(g, sub.text, 1090, 64, 620, 'bottom');
 
-  if (!fullVersion) drawWatermark(g);  // 完全版では透かしを出さない
+  if (!fullVersion || keepLogo) drawWatermark(g);  // 完全版では透かしを出さない（「ロゴを入れる」を選んだときだけ出す）
 }
 
 // 透かし（無料版）：白い札に小さなおばけ＋「こえだけ で作ったよ」。見た人がアプリの名前だと分かるように
@@ -1130,7 +1135,7 @@ function drawWatermark(c){
 /* ---------- loop ---------- */
 let level = 0, beepOn = false;
 // 1コマの中でエラーが出ても、次のコマは必ず描く（止まると赤い線やプレビューが固まる）
-let frameErr = 0;
+let frameErr = 0, lastResume = 0;
 function frame(ms){
   try { frameBody(ms); }
   catch(e){ if (frameErr++ < 3) console.error('frame でエラー:', e); }
@@ -1138,6 +1143,8 @@ function frame(ms){
 }
 function frameBody(ms){
   const now = ms/1000, t = video.currentTime || 0;
+  // 再生中なのに音の経路が止まっていたら動かし直す（iPhone は音の経路が止まると動画も進まない）
+  if (actx && !video.paused && actx.state !== 'running' && ms - lastResume > 500){ lastResume = ms; actx.resume().catch(()=>{}); }
   if (!scanning && hasMedia && !video.paused && playFrom < state.trimEnd - 0.05 && t >= state.trimEnd - 0.01){
     video.pause();
     if (endResolver){ const r = endResolver; endResolver = null; r(); }
@@ -1669,14 +1676,14 @@ async function startPlay(){
   ensureAudio();
   const ct = video.currentTime;
   if (Math.abs(ct - state.trimEnd) < 0.1 && state.trimEnd - state.trimStart > 0.2){ video.currentTime = state.trimStart; await once(video,'seeked'); }
-  if (actx.state === 'suspended') await actx.resume();
+  if (actx.state !== 'running') await actx.resume().catch(()=>{});  // iPhone は 'interrupted' のこともある
   try { await video.play(); } catch(e){ msg('再生できませんでした。別の動画で試してください。', 'loadMsg'); }
 }
 function syncPlayBtn(){ const p = video.paused; $('playBtn').textContent = p ? '▶' : '❚❚'; $('playBtn').setAttribute('aria-label', p ? '再生' : '一時停止'); }
 // 場所ごとのお知らせ：書き出し（msg）、字幕（subMsg）、動画の読み込み（loadMsg）
 function msg(t, where){ $(where || 'msg').textContent = t; }
 
-let seeking = false;
+let seeking = false, suspendTimer = 0;
 function wire(){
   $('file').onchange = e => {
     const f = e.target.files[0]; if (!f) return;
@@ -1699,13 +1706,19 @@ function wire(){
   video.onerror = () => { msg('この動画は読み込めませんでした。別の形式の動画で試してください。', 'loadMsg'); };
   // Safari は一時停止中も最後の音のかけらを繰り返し鳴らすことがあるので、止めたら音の経路ごと止める
   video.onplay = () => {
-    playFrom = video.currentTime; syncPlayBtn();
+    playFrom = video.currentTime; syncPlayBtn(); clearTimeout(suspendTimer);
     // 止める処理がまだ終わっていないこともあるので、状態を見ずに必ず動かし直す（iPhone は音の経路が止まっていると動画も進まない）
     if (actx){ if (!scanning) outGain.gain.setValueAtTime(1, actx.currentTime); actx.resume().catch(()=>{}); }
   };
   video.onpause = () => {
     syncPlayBtn();
-    if (actx && !exporting && !scanning){ outGain.gain.setValueAtTime(0, actx.currentTime); actx.suspend().catch(()=>{}); }
+    // suspend は少し待ってから。範囲をつまんで離すとすぐ再生するので、止めた直後に suspend すると
+    // 再生を始めたあとに suspend が効いて、動画が進まなくなる（iPhone。赤い線も止まる。2026-10-06）
+    if (actx && !exporting && !scanning){
+      outGain.gain.setValueAtTime(0, actx.currentTime);
+      clearTimeout(suspendTimer);
+      suspendTimer = setTimeout(() => { if (video.paused && !exporting && !scanning) actx.suspend().then(() => { if (!video.paused) actx.resume().catch(()=>{}); }).catch(()=>{}); }, 600);
+    }
   };
   video.onended = syncPlayBtn;
   $('sizeBtn').onclick = () => {
@@ -1881,7 +1894,9 @@ const SHOP = {
   mode: (hasNative('KoedakeStore') || inApp()) ? 'native' : (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /[?&]shop=test/.test(location.search)) ? 'test' : 'web'
 };
 async function shopCall(m, o){
-  if (SHOP.mode === 'native') return cap.nativePromise('KoedakeStore', m, o || {});
+  // お店の返事が来ないまま待ち続けないよう、20秒で打ち切る（Capacitor は部品が見つからないと何も返さない。2026-10-06）
+  if (SHOP.mode === 'native') return Promise.race([cap.nativePromise('KoedakeStore', m, o || {}),
+    new Promise((_, ng) => setTimeout(() => ng(new Error('timeout ' + m)), m === 'purchase' ? 600000 : 20000))]);
   const full = () => ({full: sessionStorage.getItem('koedake-test-full') === '1'});
   if (m === 'products') return {products:[{id:SHOP.ID, price:'¥480', name:'完全版'}].concat(SHOP.TIPS.map((id, i) => ({id, price:['¥160','¥480','¥980'][i], name:''}))).filter(x => o.ids.includes(x.id))};
   if (m === 'purchase'){ if (o.id === SHOP.ID) sessionStorage.setItem('koedake-test-full', '1'); return {status:'success'}; }
@@ -1902,6 +1917,7 @@ function shopPaint(){
   if (SHOP.mode === 'web') return;
   $('plan').hidden = false;
   $('planBtn').style.display = fullVersion ? 'none' : '';
+  $('keepLogoRow').hidden = !fullVersion; $('keepLogo').checked = keepLogo;
   $('planNote').textContent = fullVersion ? '完全版です。何本でも作れます。'
     : shopLeft() ? '無料版：今月はあと ' + shopLeft() + ' 本作れます（月' + SHOP.FREE + '本まで）'
     : '無料版：今月の ' + SHOP.FREE + ' 本を作り終えました。来月1日になると、また作れます。';
@@ -1921,6 +1937,7 @@ function openShop(limit){
 }
 if (SHOP.mode !== 'web'){
   $('planBtn').onclick = () => openShop(false);
+  $('keepLogo').onchange = e => { keepLogo = e.target.checked; try { localStorage.setItem('koedake-keep-logo', keepLogo ? '1' : '0'); } catch(err){} };
   // 投げ銭（何度でも）。お礼の品はなく、機能も変わらない
   const TIP_NAMES = ['ちょっと応援', '応援', 'たっぷり応援'];
   $('tipClose').onclick = () => $('tip').close();
