@@ -300,7 +300,7 @@ header p{word-break:keep-all}
       </section>
 
       <section class="step">
-        <h2><span class="num">2</span>背景とタイトル</h2>
+        <h2><span class="num">2</span>キャラと背景とタイトル</h2>
         <div class="charas" id="charas" role="group" aria-label="キャラクター"></div>
         <div class="swatches" id="swatches" role="group" aria-label="背景の色"></div>
         <label class="field">上に出すタイトル（なくてもOK）
@@ -401,6 +401,7 @@ header p{word-break:keep-all}
 
 <script src="js/art.js"></script>
 <script src="js/obake2-layout.js"></script>
+<script src="js/kuma2-layout.js"></script>
 <script>
 (() => {
 const W = 720, H = 1280;
@@ -413,8 +414,10 @@ const $ = id => document.getElementById(id);
 // 2026-09-30 佳澄さん：一覧は ChatGPT の絵の くま・うさぎ・ねこ・ひよこ と、きもち の5つ。
 // おばけ・ほし・はーと・くも・おにぎり・ふたば・ほかの動物は控え。絵と描き方は残してあるので、ここに足せばまた選べる
 // 新しい見た目の試作（2026-10-04 佳澄さん）：キャラは新しいおばけだけ。ほかのキャラの描き方は残してある
+// 2026-10-07 佳澄さん：おばけと くま（ポーズを入れ替えるくま。試作は ../くま_アニメ用パーツ/試作/）を選べるように
 const CHARAS = [
-  {id:'obake2', name:'おばけ'}
+  {id:'obake2', name:'おばけ'},
+  {id:'kuma2', name:'くま'}
 ];
 const SHOW_ART = false;  // Codex 版（しぇるてぃ）も控え。true にすると一覧のうしろに並ぶ
 // Codex 版の絵（js/art.js）。読めなかったり形が違ったりしても、Claude 版だけで動くようにする
@@ -563,6 +566,8 @@ function drawChara(c, kind, cx, cy, r, open, blink){
   const ac = artChara(kind);
   if (ac){ c.save(); c.translate(cx, cy); drawArt(c, ac, {r, open, level:open, blink, now:performance.now()/1000, hush:false, thumb:true}); c.restore(); return; }
   if (kind === 'obake'){ drawObakeThumb(c, cx, cy, r); return; }
+  if (kind === 'obake2'){ const ic = watermarkIcon(); if (ic){ const h = r*2.3, w = h*ic.w/ic.h; c.drawImage(ic.c, ic.x, ic.y, ic.w, ic.h, cx - w/2, cy - h/2, w, h); } return; }
+  if (kind === 'kuma2'){ drawKumaThumb(c, cx, cy, r*2.4); return; }
   if (kind === 'kimochi'){ drawBlob(c, cx, cy, r*0.85, KM_CALM, 0.03, 0, 1, 1); return; }
   const col = {kuma:'#C8905B', usagi:'#FFFFFF', neko:'#A3ACB6', hiyoko:'#FFD84D'}[kind];
   const inner = {kuma:'#EBC79E', usagi:'#F7B7C3', neko:'#F4B8C0', hiyoko:'#FFE994'}[kind];
@@ -1050,6 +1055,113 @@ function drawObake2(c){
   }
   c.restore();
 }
+/* ---------- くま（2026-10-07。../くま_アニメ用パーツ/試作/ と同じ動き。決まりは同フォルダの README.md） ----------
+   体ごとのポーズの絵（ChatGPT 製・目と口なし）を声に合わせて入れ替え、目と口を上から重ねる。
+   だまっている＝quiet_1／話している＝talk_1〜3／大きな声＝happy_1・2（1.4 秒、一度なったら 5 秒はならない）／
+   そのあと 1.6 秒は ポーズのまま にっこり。せわしなくならないよう、1.5 秒だまるまでは話しているまま・
+   話す⇔だまるではポーズを 2.5 秒は保つ・話し続けているときのポーズ替えは 8 秒ごと（佳澄さん「動き忙しない」） */
+const KU_P = window.KUMA_POSES;
+const KU_MOODS = { quiet:['quiet_1'], talk:['talk_1','talk_2','talk_3'], happy:['happy_1','happy_2'], smile:[] };
+const KU_SIZE = 0.48;                  // 頭の幅（KU_HEAD_W）＝画面の幅の 48%
+const KU_HEAD_W = 360;                 // ポーズの絵（60% に縮めたもの）でのおおよその頭の幅
+const KU_BASE_Y = H * 0.66;            // 足もとの位置
+const KU_MUZZLE_W = 133, KU_EYE_DY = -71, KU_MOUTH_SCALE = 0.8;  // 目と口のパーツは口まわりの幅 133px の体に合わせた大きさ
+const KU_PARTS = ['eyes_open','eyes_half','eyes_closed','mouth_closed','mouth_small','mouth_large','mouth_smile','sparkle','motion_lines','shadow'];
+const KU_IMG = {};
+const kuLoad = (n, src) => new Promise(res => { const im = new Image(); im.onload = res; im.onerror = res; im.src = src; KU_IMG[n] = im; });
+const kuReady = Promise.all([
+  ...KU_PARTS.map(n => kuLoad(n, 'assets/characters/kuma2/' + n + '.png')),
+  ...Object.keys(KU_P).map(n => kuLoad(n, 'assets/characters/kuma2/' + n + '.webp')),
+]);
+const ku = { t:0, lastMs:0, noise:.004, speech:.05, level:0, smooth:0, loudFor:0,
+  excite:0, exciteHold:0, cool:0, smileHold:0, quietFor:9, mood:'quiet', pose:'quiet_1', poseT:0, pop:1,
+  mouth:'mouth_closed', mouthHold:0, blinkAt:2, blinking:0, lift:0, hop:0, hopV:0, wave:0 };
+function kuPick(mood){
+  const all = KU_MOODS[mood], list = all.filter(p => p !== ku.pose);
+  return list.length ? list[Math.floor(Math.random()*list.length)] : all[0];
+}
+function kuSetPose(p){ if (p !== ku.pose){ ku.pose = p; ku.poseT = 0; ku.pop = 0; } }
+// ms：時刻（ミリ秒）、rms：今の声の大きさ（止まっている・消している間は 0）
+function kumaStep(ms, rms){
+  const dt = ku.lastMs ? Math.min(.05, Math.max(0, (ms - ku.lastMs)/1000)) : 0; ku.lastMs = ms;
+  ku.t += dt; ku.poseT += dt;
+  // 声の大きさを 0..1 に（おばけと同じ）
+  ku.noise = rms < ku.noise ? ku.noise + (rms - ku.noise)*Math.min(1, dt*8) : ku.noise + (rms - ku.noise)*dt*.05;
+  const span = Math.max(.015, ku.speech*2.0 - ku.noise);
+  const norm = Math.max(0, Math.min(1, (rms - ku.noise*1.4)/span));
+  if (norm > .15 && rms < ku.speech*2.5) ku.speech += (rms - ku.speech)*dt*.6;
+  ku.level += (norm - ku.level)*Math.min(1, (norm > ku.level ? .55 : .18)*dt*60);
+  ku.smooth += (rms - ku.smooth)*Math.min(1, dt*10);
+  ku.loudFor = ku.smooth > Math.max(.04, ku.speech*1.8) ? ku.loudFor + dt : 0;
+  const loud = ku.loudFor > .15, lv = ku.level;
+  const wasHappy = ku.exciteHold > 0;
+  if (loud && ku.exciteHold > 0) ku.exciteHold = Math.max(ku.exciteHold, .8);
+  else if (loud && ku.cool <= 0){ ku.exciteHold = 1.4; ku.cool = 1.4 + 5; ku.hopV = -300; }
+  ku.exciteHold = Math.max(0, ku.exciteHold - dt);
+  ku.cool = Math.max(0, ku.cool - dt);
+  if (wasHappy && ku.exciteHold <= 0) ku.smileHold = 1.6;
+  ku.smileHold = Math.max(0, ku.smileHold - dt);
+  ku.excite += ((ku.exciteHold > 0 ? 1 : 0) - ku.excite)*Math.min(1, dt*6);
+  // 気持ち → ポーズ
+  ku.quietFor = lv > .12 ? 0 : ku.quietFor + dt;
+  const mood = ku.exciteHold > 0 ? 'happy' : ku.smileHold > 0 ? 'smile' : ku.quietFor < 1.5 ? 'talk' : 'quiet';
+  const canSwap = mood === 'happy' || ku.mood === 'happy' || ku.mood === 'smile' || ku.poseT > 2.5;
+  if (mood !== ku.mood && canSwap){ ku.mood = mood; if (KU_MOODS[mood].length) kuSetPose(kuPick(mood)); }
+  else if (mood === ku.mood && mood === 'talk' && ku.poseT > 8) kuSetPose(kuPick(mood));
+  ku.pop = Math.min(1, ku.pop + dt/.18);
+  // 口（ちらつかないよう 70ms は保つ）
+  let want = lv > .62 ? 'mouth_large' : lv > .12 ? 'mouth_small' : (ku.mood === 'happy' || ku.mood === 'smile') ? 'mouth_smile' : 'mouth_closed';
+  if (ku.mood === 'happy' && lv > .12) want = 'mouth_large';
+  ku.mouthHold -= dt;
+  if (want !== ku.mouth && ku.mouthHold <= 0){ ku.mouth = want; ku.mouthHold = .07; }
+  if (ku.t > ku.blinkAt){ ku.blinking = .12; ku.blinkAt = ku.t + 2.2 + Math.random()*3; if (Math.random() < .2) ku.blinkAt = ku.t + .25; }
+  ku.blinking = Math.max(0, ku.blinking - dt);
+  ku.lift += ((lv*6 + ku.excite*4) - ku.lift)*Math.min(1, dt*5);
+  ku.hopV += 1500*dt; ku.hop += ku.hopV*dt;
+  if (ku.hop > 0){ ku.hop = 0; ku.hopV = 0; }
+  ku.wave += dt*(ku.mood === 'happy' ? 9 : 2);
+}
+function kuImg(c, n, x, y, scale, alpha = 1){
+  const im = KU_IMG[n]; if (!im || !im.width || alpha <= .01) return;
+  c.save(); c.globalAlpha *= alpha; c.translate(x, y); c.scale(scale, scale); c.drawImage(im, -im.width/2, -im.height/2); c.restore();
+}
+// ポーズの絵に目と口を重ねる（ポーズの絵の座標で描く）
+function kuFace(c, pose, eyes, mouth){
+  const p = KU_P[pose], im = KU_IMG[pose]; if (!im || !im.width) return false;
+  const k = p.muzzle_w/KU_MUZZLE_W;
+  c.drawImage(im, 0, 0);
+  kuImg(c, mouth, p.muzzle_cx, p.muzzle_cy, KU_MOUTH_SCALE*k);
+  kuImg(c, eyes, p.muzzle_cx, p.muzzle_cy + KU_EYE_DY*k, k);
+  return true;
+}
+function drawKuma(c){
+  const p = KU_P[ku.pose]; if (!KU_IMG[ku.pose] || !KU_IMG[ku.pose].width) return;
+  const S = W*KU_SIZE/KU_HEAD_W, k = p.muzzle_w/KU_MUZZLE_W;
+  const up = Math.sin(ku.t*1.2)*3 + ku.lift - ku.hop;
+  c.save(); c.translate(W/2, KU_BASE_Y); c.scale(S, S);
+  const ks = 1 - Math.max(0, up)*.005;
+  kuImg(c, 'shadow', 0, 6, .75*ks, Math.max(.4, ks));
+  const pop = ku.pop < 1 ? Math.sin(ku.pop*Math.PI)*.03 : 0;   // ポーズを入れ替えた直後は小さく弾む
+  c.translate(0, -up);
+  c.rotate(Math.sin(ku.t*.7)*.012);
+  const st = ku.level*.015; c.scale((1 - st*.5)*(1 + pop), (1 + st)*(1 - pop*.6));
+  c.translate(-p.muzzle_cx, -p.foot_y);
+  const eyes = (ku.mood === 'happy' || ku.mood === 'smile') ? 'eyes_closed' : ku.blinking > 0 ? 'eyes_half' : 'eyes_open';
+  kuFace(c, ku.pose, eyes, ku.mouth);
+  // きらきら（頭の左上）と動き線（右）
+  const e = ku.excite, hx = p.muzzle_cx, top = p.muzzle_cy - 228;
+  kuImg(c, 'sparkle', hx - 180, top + 24, .66 + Math.sin(ku.t*10)*.024, e);
+  kuImg(c, 'motion_lines', hx + 228 + Math.sin(ku.wave)*5, top + 120, .72, e);
+  c.restore();
+}
+// 一覧のボタン用：だまっているくまを、余白を切って (cx, cy) を中心に高さ h で描く
+function drawKumaThumb(c, cx, cy, h){
+  const p = KU_P.quiet_1, im = KU_IMG.quiet_1; if (!im || !im.width) return;
+  const s = h/im.height;
+  c.save(); c.translate(cx - im.width*s/2, cy - im.height*s/2); c.scale(s, s);
+  kuFace(c, 'quiet_1', 'eyes_open', 'mouth_closed');
+  c.restore();
+}
 // 字幕とタイトル：枠も縁取りもない、小さめの文字（* で囲んだところは色を変える）
 function drawSoftText(c, text, y, size, maxW, color){
   if (!text) return;
@@ -1069,12 +1181,14 @@ function drawSoftText(c, text, y, size, maxW, color){
 
 function render(now, t, level, inBeep){
   g.fillStyle = state.bg; g.fillRect(0,0,W,H);
-  if (state.chara === 'obake2'){
-    // 新しい見た目：背景は1色だけ。タイトルは上に小さく、字幕はおばけの下に小さく
+  if (state.chara === 'obake2' || state.chara === 'kuma2'){
+    // 新しい見た目：背景は1色だけ。タイトルは上に小さく、字幕はキャラの下に小さく
     drawSoftText(g, state.title, 250, 38, 560, 'rgba(75,66,69,.75)');
-    drawObake2(g);
+    let subY;
+    if (state.chara === 'kuma2'){ drawKuma(g); subY = KU_BASE_Y + 90; }
+    else { drawObake2(g); subY = OB2_BASE_Y + W*OB2_SIZE*.48 + 70; }
     const sub = proOn && state.subs.find(s => !s.adult && t >= s.start && t < s.end);
-    if (sub) drawSoftText(g, sub.text, OB2_BASE_Y + W*OB2_SIZE*.48 + 70, 46, 560, INK);
+    if (sub) drawSoftText(g, sub.text, subY, 46, 560, INK);
     if (!fullVersion || keepLogo) drawWatermark(g);  // 完全版では透かしを出さない（「ロゴを入れる」を選んだときだけ出す）
     return;
   }
@@ -1190,6 +1304,7 @@ function frameBody(ms){
   if (state.chara === 'kimochi') updateKimochi(now, target, pitch, inBeep);
   if (state.chara === 'obake') obStep(ms, hasMedia && !video.paused && !scanning, mute);
   if (state.chara === 'obake2') ob2Step(ms, (mute || scanning) ? 0 : rmsNow);
+  if (state.chara === 'kuma2') kumaStep(ms, (mute || scanning) ? 0 : rmsNow);
   render(now, t, level, inBeep);
   if (!seeking) $('seek').value = t;
   $('timeLbl').textContent = fmt(t);
@@ -1207,11 +1322,13 @@ function buildCharas(){
     b.className = 'chara'; b.type = 'button'; b.dataset.id = ch.id; b.setAttribute('aria-pressed', ch.id === state.chara);
     const c = document.createElement('canvas'); c.width = 144; c.height = 144;
     const cc = c.getContext('2d');
-    cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144);
+    cc.clearRect(0,0,144,144);
     drawChara(cc, ch.id, 72, 76, 44, 0, 1);
-    if (AN_SPEC[ch.id]) anReady.then(() => { cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
-    if (ch.id === 'obake') obReady.then(() => { cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
-    if (ch.art) Promise.resolve(ART.ready).catch(()=>{}).then(() => { cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
+    if (ch.id === 'obake2') ob2Ready.then(() => { cc.clearRect(0,0,144,144); drawChara(cc, ch.id, 72, 72, 44, 0, 1); });
+    if (ch.id === 'kuma2') kuReady.then(() => { cc.clearRect(0,0,144,144); drawChara(cc, ch.id, 72, 72, 44, 0, 1); });
+    if (AN_SPEC[ch.id]) anReady.then(() => { cc.clearRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
+    if (ch.id === 'obake') obReady.then(() => { cc.clearRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
+    if (ch.art) Promise.resolve(ART.ready).catch(()=>{}).then(() => { cc.clearRect(0,0,144,144); drawChara(cc, ch.id, 72, 76, 44, 0, 1); });
     b.append(c, document.createTextNode(ch.name));
     b.onclick = () => { state.chara = ch.id; [...box.children].forEach(x => x.setAttribute('aria-pressed', x === b)); };
     box.append(b);
