@@ -162,6 +162,12 @@ input[type=number]{width:5.2em;padding:6px 6px;text-align:right}
 #msg{margin:10px 0 0;font-size:.9rem;min-height:1.4em}
 .stepMsg{margin:8px 0 0;font-size:.9rem;font-weight:700}
 .stepMsg:empty{display:none}
+/* 下書き（自動で一時保存） */
+.draftBox{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;margin:0 0 14px}
+.draftBox p{margin:0 0 4px;font-weight:700}
+.draftBox .hint{font-weight:400;margin:0 0 10px}
+.saveNote{margin:8px 0 0;font-size:.8rem;color:var(--muted)}
+.saveNote:empty{display:none}
 #result{margin-top:12px;display:none}
 #result video{width:min(100%,260px);border-radius:18px;display:block}
 .fb textarea{font:inherit;color:var(--ink);background:var(--field);border:1.5px solid var(--line);border-radius:12px;padding:8px 10px;width:100%;min-height:4.6em;resize:vertical;margin-top:4px}
@@ -253,11 +259,17 @@ header p{word-break:keep-all}
     <div>
       <section class="step">
         <h2><span class="num">1</span>動画を選ぶ</h2>
+        <div class="draftBox" id="draftBox" hidden>
+          <p id="draftNote">作りかけの動画があります</p>
+          <p class="hint">新しい動画を選ぶと、この下書きは消えます。</p>
+          <div class="row"><button type="button" class="primary" id="draftResume">続きから作る</button><button type="button" id="draftDiscard">新しく作る</button></div>
+        </div>
         <p class="hint">動画はこの端末の中だけで処理され、どこにも送信されません。</p>
         <p class="hint">選ぶ画面で動画を長押しすると、中身を再生して確かめられます。</p>
         <span class="btn primary filebtn">動画を選ぶ<input type="file" id="file" accept="video/*,audio/*"></span>
         <span class="fileName" id="fileName"></span>
         <p class="stepMsg" id="loadMsg" role="status"></p>
+        <p class="saveNote"></p>
         <div id="trimBox" style="display:none;margin-top:18px">
           <p class="hint">黄色い枠の両はしを指でつまんで動かし、使う部分を囲みます。枠の真ん中をつまむと、長さはそのまま位置だけ動かせます。波の山は声が大きいところです。</p>
           <div class="trimmer" id="trimmer">
@@ -305,6 +317,7 @@ header p{word-break:keep-all}
         </div>
         <p class="stepMsg" id="subMsg" role="status"></p>
         <div class="list" id="subList"></div>
+        <p class="saveNote"></p>
       </section>
 
       <section class="step">
@@ -1191,7 +1204,7 @@ function buildCharas(){
   if (CHARAS.length <= 1) box.style.display = 'none';
   else for (const ch of CHARAS){
     const b = document.createElement('button');
-    b.className = 'chara'; b.type = 'button'; b.setAttribute('aria-pressed', ch.id === state.chara);
+    b.className = 'chara'; b.type = 'button'; b.dataset.id = ch.id; b.setAttribute('aria-pressed', ch.id === state.chara);
     const c = document.createElement('canvas'); c.width = 144; c.height = 144;
     const cc = c.getContext('2d');
     cc.fillStyle = '#F2F6F9'; cc.fillRect(0,0,144,144);
@@ -1206,7 +1219,7 @@ function buildCharas(){
   const sw = $('swatches');
   for (const col of BGS){
     const b = document.createElement('button');
-    b.className = 'swatch'; b.type = 'button'; b.style.background = col;
+    b.className = 'swatch'; b.type = 'button'; b.dataset.bg = col; b.style.background = col;
     b.setAttribute('aria-label', '背景の色'); b.setAttribute('aria-pressed', col === state.bg);
     b.onclick = () => { state.bg = col; cv.style.background = col; [...sw.children].forEach(x => x.setAttribute('aria-pressed', x === b)); };
     sw.append(b);
@@ -1683,18 +1696,101 @@ function syncPlayBtn(){ const p = video.paused; $('playBtn').textContent = p ? '
 // 場所ごとのお知らせ：書き出し（msg）、字幕（subMsg）、動画の読み込み（loadMsg）
 function msg(t, where){ $(where || 'msg').textContent = t; }
 
+/* ---------- 下書き（自動で一時保存。2026-10-07 佳澄さん） ----------
+   作っている途中のもの（使う範囲・キャラ・背景・タイトル・字幕・こだわりのタブ）を、変わるたびに自動でこの端末にしまう。
+   残すのは最後の1つだけ。動画もいっしょにしまうので、続きから作るとき動画を選び直さなくてよい（どこにも送らない）。
+   新しい動画を選ぶと前の下書きは消える。「新しく作る」でも消える */
+const DRAFT_DB = 'koedake-draft';
+function draftDo(mode, fn){
+  return new Promise((ok, ng) => {
+    const r = indexedDB.open(DRAFT_DB, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('d');
+    r.onerror = () => ng(r.error);
+    r.onsuccess = () => {
+      const db = r.result, tx = db.transaction('d', mode), q = fn(tx.objectStore('d'));
+      tx.oncomplete = () => { db.close(); ok(q && q.result); };
+      tx.onerror = tx.onabort = () => { db.close(); ng(tx.error); };
+    };
+  });
+}
+const draftGet = k => draftDo('readonly', st => st.get(k));
+const draftPut = (k, v) => draftDo('readwrite', st => st.put(v, k));
+const draftClear = () => draftDo('readwrite', st => st.clear());
+let draftOn = false, draftLast = '', draftBusy = false, restoring = null, draftFound = null;
+function saveNote(t){ document.querySelectorAll('.saveNote').forEach(e => e.textContent = t); }
+function hhmm(d){ return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function workJson(){
+  return JSON.stringify({ chara:state.chara, bg:state.bg, title:state.title, trimStart:state.trimStart, trimEnd:state.trimEnd, pro:proOn,
+    subs: state.subs.map(s => ({start:s.start, end:s.end, text:s.text, adult:!!s.adult, adultGuess:!!s.adultGuess})) });
+}
+// 新しい動画を選んだ：前の下書きを消して、動画をしまう。しまえたら作業の自動保存を始める
+function draftStart(f){
+  draftOn = false; draftLast = ''; draftFound = null; $('draftBox').hidden = true; saveNote('');
+  draftClear().then(() => draftPut('video', {blob:f, name:f.name})).then(() => { draftOn = true; })
+    .catch(() => saveNote('この動画は下書きに保存できませんでした（端末の空きが足りないかもしれません）。'));
+}
+// 2秒ごとに見て、変わっていたらしまう（打つたびに書き込まないように）
+function draftTick(){
+  if (!draftOn || draftBusy || !hasMedia || restoring) return;
+  const j = workJson(); if (j === draftLast) return;
+  draftBusy = true;
+  draftPut('work', {json:j, at:Date.now()})
+    .then(() => { draftLast = j; saveNote('下書きに自動で保存しました（' + hhmm(new Date()) + '）'); })
+    .catch(() => {}).finally(() => { draftBusy = false; });
+}
+function applyDraft(w){
+  const d = video.duration || 0;
+  state.trimStart = Math.min(Math.max(0, +w.trimStart || 0), d);
+  state.trimEnd = Math.min(Math.max(state.trimStart, +w.trimEnd || d), d) || d;
+  if (CHARAS.some(c => c.id === w.chara)) state.chara = w.chara;
+  if (BGS.includes(w.bg)) state.bg = w.bg;
+  [...$('charas').children].forEach(x => x.setAttribute('aria-pressed', x.dataset.id === state.chara));
+  [...$('swatches').children].forEach(x => x.setAttribute('aria-pressed', x.dataset.bg === state.bg));
+  cv.style.background = state.bg;
+  state.title = w.title || ''; $('title').value = state.title;
+  state.subs = (w.subs || []).map(s => ({...s}));
+  setPro(w.pro || state.subs.length > 0);
+  updateTrim(); drawWave(); renderLists();
+  draftLast = workJson(); draftOn = true;
+  saveNote('下書きから続きを開きました。このあとも自動で保存します。');
+}
+async function wireDraft(){
+  setInterval(draftTick, 2000);
+  $('draftDiscard').onclick = () => { draftFound = null; $('draftBox').hidden = true; draftClear().catch(() => {}); };
+  $('draftResume').onclick = () => {
+    const f = draftFound; if (!f) return;
+    draftFound = null; $('draftBox').hidden = true;
+    restoring = f.work; loadMedia(f.video.blob, f.video.name);
+  };
+  try {
+    const [v, w] = await Promise.all([draftGet('video'), draftGet('work')]);
+    if (!v || !v.blob || !w || hasMedia || video.src) return;
+    const work = JSON.parse(w.json), at = new Date(w.at), n = (work.subs || []).filter(s => s.text && s.text.trim()).length;
+    draftFound = {video:v, work};
+    $('draftNote').textContent = `作りかけの動画があります（${at.getMonth()+1}月${at.getDate()}日 ${hhmm(at)}` + (n ? `・字幕${n}つ` : '') + '）';
+    $('draftBox').hidden = false;
+  } catch(e){}
+}
+
 let seeking = false, suspendTimer = 0;
 function wire(){
   $('file').onchange = e => {
     const f = e.target.files[0]; if (!f) return;
+    bump('lastType', f.type || (f.name.split('.').pop() || '').toLowerCase());
+    restoring = null; loadMedia(f, f.name); draftStart(f);
+  };
+}
+function loadMedia(f, name){
+  {
     if (video.src) URL.revokeObjectURL(video.src);
     video.src = URL.createObjectURL(f);
-    $('fileName').textContent = f.name;
-    bump('lastType', f.type || (f.name.split('.').pop() || '').toLowerCase());
+    $('fileName').textContent = name;
     hasMedia = false; liveAcc = liveCnt = pitchSum = pitchCnt = pcm16 = null; liveDirty = false; $('trimBox').style.display = 'none'; buildWave(f);
     state.subs = []; state.beeps = []; renderLists();
     $('result').style.display = 'none'; msg(''); msg('', 'subMsg'); msg('', 'loadMsg');
-  };
+  }
+}
+function wireMedia(){
   video.onloadedmetadata = () => {
     hasMedia = true;
     $('seek').max = video.duration || 1;
@@ -1702,6 +1798,7 @@ function wire(){
     initLive(video.duration);
     $('trimBox').style.display = 'block'; updateTrim(); drawWave();
     ['playBtn','seek','autoSub','addSub','exportBtn','setIn','setOut','trimIn','trimOut','trimReset'].forEach(id => $(id).disabled = false);
+    if (restoring){ applyDraft(restoring); restoring = null; }
   };
   video.onerror = () => { msg('この動画は読み込めませんでした。別の形式の動画で試してください。', 'loadMsg'); };
   // Safari は一時停止中も最後の音のかけらを繰り返し鳴らすことがあるので、止めたら音の経路ごと止める
@@ -2043,7 +2140,7 @@ async function saveBlob(blob, ext){
 }
 
 /* ---------- start ---------- */
-buildCharas(); renderLists(); wire(); wireTrimmer(); wireFeedback();
+buildCharas(); renderLists(); wire(); wireMedia(); wireTrimmer(); wireFeedback(); wireDraft();
 cv.style.background = state.bg;
 if (document.fonts && document.fonts.load){ document.fonts.load(`700 40px "Zen Maru Gothic"`).catch(()=>{}); }
 requestAnimationFrame(frame);
