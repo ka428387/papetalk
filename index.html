@@ -266,12 +266,12 @@ header p{word-break:keep-all}
         </div>
         <p class="hint">動画はこの端末の中だけで処理され、どこにも送信されません。</p>
         <p class="hint">選ぶ画面で動画を長押しすると、中身を再生して確かめられます。</p>
-        <span class="btn primary filebtn">動画を選ぶ<input type="file" id="file" accept="video/*,audio/*"></span>
+        <span class="btn primary filebtn">動画を選ぶ<input type="file" id="file" accept="video/*,audio/*,.m4a,.mp3,.wav,.aac,.caf,audio/mp4,audio/x-m4a,audio/mpeg"></span>
         <span class="fileName" id="fileName"></span>
         <p class="stepMsg" id="loadMsg" role="status"></p>
         <p class="saveNote"></p>
         <div id="trimBox" style="display:none;margin-top:18px">
-          <p class="hint">黄色い枠の両はしを指でつまんで動かし、使う部分を囲みます。枠の真ん中をつまむと、長さはそのまま位置だけ動かせます。波の山は声が大きいところです。</p>
+          <p class="hint">黄色い枠の両はしを指でつまんで動かし、使う部分を囲みます。枠の中を指でなぞると、赤い線（いま聞いている所）が動きます。波の山は声が大きいところです。</p>
           <div class="trimmer" id="trimmer">
             <canvas id="wave"></canvas>
             <button type="button" id="waveLoad" class="waveLoad" style="display:none" disabled>声を読み取り中…</button>
@@ -1634,6 +1634,8 @@ async function autoSubs(){
 }
 
 /* ---------- trimmer drag ---------- */
+// 赤い線（再生位置）は使う範囲の中だけ
+function inRange(t){ return Math.min(state.trimEnd, Math.max(state.trimStart, t)); }
 function wireTrimmer(){
   const tr = $('trimmer'), MIN = 0.5;
   const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
@@ -1649,26 +1651,27 @@ function wireTrimmer(){
   };
   $('hL').addEventListener('pointerdown', down('l'));
   $('hR').addEventListener('pointerdown', down('r'));
-  $('sel').addEventListener('pointerdown', down('move'));
+  // 枠の中をなぞると赤い線（再生位置）が動く。枠ごと動かすのはやめた（頭出しのときに枠が動いてしまうため。2026-10-07 佳澄さん）
+  $('sel').addEventListener('pointerdown', down('scrub'));
   tr.addEventListener('pointerdown', e => {
     if (!hasMedia || exporting || drag) return;
-    video.currentTime = xToT(e.clientX);
+    video.currentTime = inRange(xToT(e.clientX));
   });
   window.addEventListener('pointermove', e => {
     if (!drag) return;
     if (Math.abs(e.clientX - drag.x0) > 4) drag.moved = true;
     if (!drag.moved) return;
     const d = video.duration, t = xToT(e.clientX);
+    if (drag.mode === 'scrub'){ video.currentTime = inRange(t); return; }
     if (drag.mode === 'l') state.trimStart = clamp(t, 0, state.trimEnd - MIN);
     else if (drag.mode === 'r') state.trimEnd = clamp(t, state.trimStart + MIN, d);
-    else { const st = clamp(t - drag.grab, 0, d - drag.len); state.trimStart = st; state.trimEnd = st + drag.len; }
     video.currentTime = drag.mode === 'r' ? state.trimEnd : state.trimStart;
     updateTrim();
   });
   const up = e => {
     if (!drag) return;
     const m = drag.mode, moved = drag.moved; drag = null;
-    if (!moved){ if (m === 'move') video.currentTime = xToT(e.clientX); return; }
+    if (!moved || m === 'scrub'){ if (m === 'scrub') video.currentTime = inRange(xToT(e.clientX)); return; }
     video.currentTime = m === 'r' ? Math.max(state.trimStart, state.trimEnd - 2) : state.trimStart;
     startPlay();
   };
@@ -1688,7 +1691,8 @@ function wireTrimmer(){
 async function startPlay(){
   ensureAudio();
   const ct = video.currentTime;
-  if (Math.abs(ct - state.trimEnd) < 0.1 && state.trimEnd - state.trimStart > 0.2){ const sk = once(video,'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
+  if (ct < state.trimStart - 0.05 || ct > state.trimEnd + 0.05){ const sk = once(video,'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
+  else if (Math.abs(ct - state.trimEnd) < 0.1 && state.trimEnd - state.trimStart > 0.2){ const sk = once(video,'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
   if (actx.state !== 'running') await waitMax(actx.resume(), 1500);  // iPhone は 'interrupted' のこともある。返事が来ないこともある
   try { await video.play(); } catch(e){ msg('再生できませんでした。別の動画で試してください。', 'loadMsg'); }
 }
@@ -1825,7 +1829,7 @@ function wireMedia(){
   };
   $('playBtn').onclick = () => { if (exporting || scanning) return; stopAt = null; video.paused ? startPlay() : video.pause(); };
   const sk = $('seek');
-  sk.oninput = () => { seeking = true; video.currentTime = parseFloat(sk.value); };
+  sk.oninput = () => { seeking = true; video.currentTime = inRange(parseFloat(sk.value)); };
   sk.onchange = () => { seeking = false; };
   $('title').oninput = e => { state.title = e.target.value; };
   const pickMode = on => setPro(on);
