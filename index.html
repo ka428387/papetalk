@@ -1688,8 +1688,8 @@ function wireTrimmer(){
 async function startPlay(){
   ensureAudio();
   const ct = video.currentTime;
-  if (Math.abs(ct - state.trimEnd) < 0.1 && state.trimEnd - state.trimStart > 0.2){ video.currentTime = state.trimStart; await once(video,'seeked'); }
-  if (actx.state !== 'running') await actx.resume().catch(()=>{});  // iPhone は 'interrupted' のこともある
+  if (Math.abs(ct - state.trimEnd) < 0.1 && state.trimEnd - state.trimStart > 0.2){ const sk = once(video,'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
+  if (actx.state !== 'running') await waitMax(actx.resume(), 1500);  // iPhone は 'interrupted' のこともある。返事が来ないこともある
   try { await video.play(); } catch(e){ msg('再生できませんでした。別の動画で試してください。', 'loadMsg'); }
 }
 function syncPlayBtn(){ const p = video.paused; $('playBtn').textContent = p ? '▶' : '❚❚'; $('playBtn').setAttribute('aria-label', p ? '再生' : '一時停止'); }
@@ -1928,23 +1928,28 @@ function pickMime(){
   return c.find(m => MediaRecorder.isTypeSupported(m)) || null;
 }
 function once(el, ev){ return new Promise(r => el.addEventListener(ev, r, {once:true})); }
+// 返事が来なくても ms ミリ秒で先へ進む
+function waitMax(p, ms){ return Promise.race([Promise.resolve(p).catch(()=>{}), new Promise(r => setTimeout(r, ms))]); }
 
 async function exportVideo(){
   if (!hasMedia || exporting) return;
   if (!shopCanExport()){ openShop(true); return; }
   const mime = pickMime();
   if (!mime || !cv.captureStream){ msg('このブラウザは動画の書き出しに対応していません。最新のChromeかSafariで試してください。'); return; }
-  ensureAudio(); if (actx.state === 'suspended') await actx.resume();
+  // 準備のあいだも「書き出し中」にしておく（2回押しても2本同時に始まらないように）。
+  // iPhone は音の経路の resume や 'seeked' の返事が来ないことがあり、1回目を押しても始まらなかった（2026-10-07）ので、待つのは少しだけにする
+  exporting = true; cancelExport = false;
+  msg('書き出しの準備をしています…');
+  ensureAudio(); if (actx.state !== 'running') await waitMax(actx.resume(), 1500);
   try { await ART.ready; await obReady; await anReady; } catch(e){}  // Codex 版の画像を読み終えてから録画する
   video.pause();
-  if (Math.abs(video.currentTime - state.trimStart) > 0.01){ video.currentTime = state.trimStart; await once(video, 'seeked'); }
+  if (Math.abs(video.currentTime - state.trimStart) > 0.01){ const sk = once(video, 'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
   const vs = cv.captureStream(30);
   const stream = new MediaStream([...vs.getVideoTracks(), ...streamDest.stream.getAudioTracks()]);
   const chunks = [];
   recorder = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:4000000});
   recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
   const stopped = once(recorder, 'stop');
-  exporting = true; cancelExport = false;
   ['playBtn','seek','autoSub','addSub','exportBtn','setIn','setOut','trimIn','trimOut','trimReset'].forEach(id => $(id).disabled = true);
   $('cancelBtn').style.display = ''; $('progress').style.display = 'block';
   $('result').style.display = 'none';
