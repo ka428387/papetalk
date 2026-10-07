@@ -1062,9 +1062,9 @@ function drawObake2(c){
    話す⇔だまるではポーズを 2.5 秒は保つ・話し続けているときのポーズ替えは 8 秒ごと（佳澄さん「動き忙しない」） */
 const KU_P = window.KUMA_POSES;
 const KU_MOODS = { quiet:['quiet_1'], talk:['talk_1','talk_2','talk_3'], happy:['happy_1','happy_2'], smile:[] };
-const KU_SIZE = 0.48;                  // 頭の幅（KU_HEAD_W）＝画面の幅の 48%
+const KU_SIZE = 0.26;                  // 頭の幅（KU_HEAD_W）＝画面の幅の 26%。おばけと同じ高さになる大きさ（2026-10-08 佳澄さん「おばけちゃんと同じ大きさに」。前は 48%）
 const KU_HEAD_W = 360;                 // ポーズの絵（60% に縮めたもの）でのおおよその頭の幅
-const KU_BASE_Y = H * 0.66;            // 足もとの位置
+const KU_BASE_Y = OB2_BASE_Y;          // 足もとの位置（おばけの体の底と同じ）
 const KU_MUZZLE_W = 133, KU_EYE_DY = -71, KU_MOUTH_SCALE = 0.8;  // 目と口のパーツは口まわりの幅 133px の体に合わせた大きさ
 const KU_PARTS = ['eyes_open','eyes_half','eyes_closed','mouth_closed','mouth_small','mouth_large','mouth_smile','sparkle','motion_lines','shadow'];
 const KU_IMG = {};
@@ -1184,9 +1184,8 @@ function render(now, t, level, inBeep){
   if (state.chara === 'obake2' || state.chara === 'kuma2'){
     // 新しい見た目：背景は1色だけ。タイトルは上に小さく、字幕はキャラの下に小さく
     drawSoftText(g, state.title, 250, 38, 560, 'rgba(75,66,69,.75)');
-    let subY;
-    if (state.chara === 'kuma2'){ drawKuma(g); subY = KU_BASE_Y + 90; }
-    else { drawObake2(g); subY = OB2_BASE_Y + W*OB2_SIZE*.48 + 70; }
+    if (state.chara === 'kuma2') drawKuma(g); else drawObake2(g);
+    const subY = OB2_BASE_Y + W*OB2_SIZE*.48 + 70;  // 字幕の位置は おばけ・くま 同じ
     const sub = proOn && state.subs.find(s => !s.adult && t >= s.start && t < s.end);
     if (sub) drawSoftText(g, sub.text, subY, 46, 560, INK);
     if (!fullVersion || keepLogo) drawWatermark(g);  // 完全版では透かしを出さない（「ロゴを入れる」を選んだときだけ出す）
