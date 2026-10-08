@@ -44,6 +44,8 @@ header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:4px 0 20
 header h1{margin:0;font-size:2.4rem;font-weight:900;letter-spacing:.04em;line-height:1.1}
 header p{margin:0;color:var(--muted);font-size:.95rem}
 body:not(.pro-on) .pro{display:none}
+/* 書き出し中は触れない部分を薄く */
+.modeTabs[inert],.step[inert]{opacity:.5}
 /* 作り方のタブ：しんぷる／こだわり。選んでいる方はやさしい黄色、選んでいない方は薄い灰色の文字で、ひと目で違いがわかるように */
 .modeTabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--field);border:1.5px solid var(--line);border-radius:999px;margin:-8px 0 6px;max-width:420px}
 .modeTabs button{border:none;background:transparent;border-radius:999px;padding:8px 0;font-size:.95rem;font-weight:500;color:var(--muted);opacity:.7}
@@ -310,7 +312,7 @@ header p{word-break:keep-all}
 
       <section class="step pro">
         <h2><span class="num">3</span>字幕を付ける</h2>
-        <p class="hint">「しゃべっている所を見つける」を押すと、声のする部分ごとに字幕の枠が自動でできます。親の声など入れたくない声は、その枠の「この声を消す」で消せます（低い声の枠には「大人の声かも？」と出ます）。</p>
+        <p class="hint">字幕の文字は自分で入力します（自動で文字にはしません）。「しゃべっている所を見つける」を押すと、声のする部分ごとに字幕の枠が自動でできます。親の声など入れたくない声は、その枠の「この声を消す」で消せます（低い声の枠には「大人の声かも？」と出ます）。</p>
         <div class="row">
           <button class="primary" id="autoSub" disabled>しゃべっている所を見つける</button>
           <button id="addSub" disabled>手動で字幕を追加</button>
@@ -457,7 +459,7 @@ function setPro(on){
   document.body.classList.toggle('pro-on', proOn);
   $('exportNum').textContent = proOn ? '4' : '3';
   $('tabSimple').setAttribute('aria-selected', !proOn); $('tabPro').setAttribute('aria-selected', proOn);
-  $('modeNote').textContent = proOn ? '字幕を付けたり、声を消したりもできます' : '動画と背景を選んで、書き出すだけ';
+  $('modeNote').textContent = proOn ? '字幕を付けたり、声を消したりもできます' : '動画と背景を選んで、書き出すだけ（字幕を付ける・声を消すは「こだわり」で）';
 }
 let hasMedia = false, exporting = false, cancelExport = false;
 let lastBlob = null, lastExt = 'mp4';
@@ -1810,7 +1812,7 @@ async function startPlay(){
   if (ct < state.trimStart - 0.05 || ct > state.trimEnd + 0.05){ const sk = once(video,'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
   else if (Math.abs(ct - state.trimEnd) < 0.1 && state.trimEnd - state.trimStart > 0.2){ const sk = once(video,'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
   if (actx.state !== 'running') await waitMax(actx.resume(), 1500);  // iPhone は 'interrupted' のこともある。返事が来ないこともある
-  try { await video.play(); } catch(e){ msg('再生できませんでした。別の動画で試してください。', 'loadMsg'); }
+  try { await video.play(); return true; } catch(e){ msg('再生できませんでした。別の動画で試してください。', 'loadMsg'); return false; }
 }
 function syncPlayBtn(){ const p = video.paused; $('playBtn').textContent = p ? '▶' : '❚❚'; $('playBtn').setAttribute('aria-label', p ? '再生' : '一時停止'); }
 // 場所ごとのお知らせ：書き出し（msg）、字幕（subMsg）、動画の読み込み（loadMsg）
@@ -1869,7 +1871,8 @@ function applyDraft(w){
   cv.style.background = state.bg;
   state.title = w.title || ''; $('title').value = state.title;
   state.subs = (w.subs || []).map(s => ({...s}));
-  setPro(w.pro || state.subs.length > 0);
+  // 保存したタブをそのまま戻す（字幕を作ってから「しんぷる」に戻した人を「こだわり」にしない。2026-10-08）。pro を持たない古い下書きだけ字幕の有無で決める
+  setPro(typeof w.pro === 'boolean' ? w.pro : state.subs.length > 0);
   updateTrim(); drawWave(); renderLists();
   draftLast = workJson(); draftOn = true;
   saveNote('下書きから続きを開きました。このあとも自動で保存します。');
@@ -1900,8 +1903,11 @@ function wire(){
     restoring = null; loadMedia(f, f.name); draftStart(f);
   };
 }
+// いま読み込んでいる動画の目じるし（名前＋大きさ）。無料の本数を「動画ごと」に数えるのに使う
+let mediaKey = '';
 function loadMedia(f, name){
   {
+    mediaKey = name + '|' + (f.size || 0);
     if (video.src) URL.revokeObjectURL(video.src);
     video.src = URL.createObjectURL(f);
     $('fileName').textContent = name;
@@ -1948,7 +1954,7 @@ function wireMedia(){
   sk.oninput = () => { seeking = true; video.currentTime = inRange(parseFloat(sk.value)); };
   sk.onchange = () => { seeking = false; };
   $('title').oninput = e => { state.title = e.target.value; };
-  const pickMode = on => setPro(on);
+  const pickMode = on => { if (!exporting) setPro(on); };
   $('tabSimple').onclick = () => pickMode(false);
   $('tabPro').onclick = () => pickMode(true);
   $('tabSimple').onkeydown = $('tabPro').onkeydown = e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){ pickMode(e.key === 'ArrowRight'); $(proOn ? 'tabPro' : 'tabSimple').focus(); } };
@@ -2058,36 +2064,52 @@ async function exportVideo(){
   if (!mime || !cv.captureStream){ msg('このブラウザは動画の書き出しに対応していません。最新のChromeかSafariで試してください。'); return; }
   // 準備のあいだも「書き出し中」にしておく（2回押しても2本同時に始まらないように）。
   // iPhone は音の経路の resume や 'seeked' の返事が来ないことがあり、1回目を押しても始まらなかった（2026-10-07）ので、待つのは少しだけにする
-  exporting = true; cancelExport = false;
+  exporting = true; cancelExport = false; exportLost = false;
+  keepAwake(true);
+  // 書き出す内容は押した時点のもの。録画の途中でキャラ・背景・タイトル・字幕・タブを変えられないように触れなくする（2026-10-08）
+  lockEdit(true);
   msg('書き出しの準備をしています…');
-  ensureAudio(); if (actx.state !== 'running') await waitMax(actx.resume(), 1500);
-  try { await ART.ready; await obReady; await anReady; } catch(e){}  // Codex 版の画像を読み終えてから録画する
-  video.pause();
-  if (Math.abs(video.currentTime - state.trimStart) > 0.01){ const sk = once(video, 'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
-  const vs = cv.captureStream(30);
-  const stream = new MediaStream([...vs.getVideoTracks(), ...streamDest.stream.getAudioTracks()]);
+  let vs = null, failed = false;
   const chunks = [];
-  recorder = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:4000000});
-  recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-  const stopped = once(recorder, 'stop');
-  ['playBtn','seek','autoSub','addSub','exportBtn','setIn','setOut','trimIn','trimOut','trimReset'].forEach(id => $(id).disabled = true);
-  $('cancelBtn').style.display = ''; $('progress').style.display = 'block';
-  $('result').style.display = 'none';
-  msg('書き出し中です。終わるまで画面を開いたままにしてください。');
-  recorder.start(250);
-  stopAt = null;
-  const reachedEnd = new Promise(r => { endResolver = r; });
-  await startPlay();
-  await Promise.race([reachedEnd, once(video, 'ended'), stopped]);
-  endResolver = null;
-  if (recorder.state !== 'inactive') recorder.stop();
-  await stopped;
-  vs.getTracks().forEach(t => t.stop());
-  exporting = false;
-  if (video.paused){ outGain.gain.setValueAtTime(0, actx.currentTime); actx.suspend().catch(()=>{}); }
-  ['playBtn','seek','autoSub','addSub','exportBtn','setIn','setOut','trimIn','trimOut','trimReset'].forEach(id => $(id).disabled = false);
-  $('cancelBtn').style.display = 'none'; $('progress').style.display = 'none';
+  try {
+    ensureAudio(); if (actx.state !== 'running') await waitMax(actx.resume(), 1500);
+    try { await ART.ready; await obReady; await anReady; } catch(e){}  // Codex 版の画像を読み終えてから録画する
+    video.pause();
+    if (Math.abs(video.currentTime - state.trimStart) > 0.01){ const sk = once(video, 'seeked'); video.currentTime = state.trimStart; await waitMax(sk, 2000); }
+    vs = cv.captureStream(30);
+    const stream = new MediaStream([...vs.getVideoTracks(), ...streamDest.stream.getAudioTracks()]);
+    recorder = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:4000000});
+    recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = once(recorder, 'stop');
+    $('cancelBtn').style.display = ''; $('progress').style.display = 'block';
+    $('result').style.display = 'none';
+    msg('書き出し中です。終わるまで画面を開いたままにしてください。');
+    recorder.start(250);
+    stopAt = null;
+    const reachedEnd = new Promise(r => { endResolver = r; });
+    // 再生できなかったら録画の終わりを待たずにやめる（待ち続けて固まらないように）
+    // 準備のあいだにアプリを離れていたら始めない
+    if (!exportLost && await startPlay()) await Promise.race([reachedEnd, once(video, 'ended'), stopped]);
+    else failed = true;
+    endResolver = null;
+    if (recorder.state !== 'inactive') recorder.stop();
+    await waitMax(stopped, 3000);
+  } catch(e){
+    console.error(e); failed = true;
+    try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch(_){}
+  } finally {
+    // うまくいってもいかなくても、もう一度押せる状態に戻す
+    endResolver = null;
+    if (vs) vs.getTracks().forEach(t => t.stop());
+    exporting = false;
+    if (!video.paused) video.pause();
+    if (actx && video.paused){ outGain.gain.setValueAtTime(0, actx.currentTime); actx.suspend().catch(()=>{}); }
+    lockEdit(false); keepAwake(false);
+    $('cancelBtn').style.display = 'none'; $('progress').style.display = 'none';
+  }
+  if (exportLost){ msg('書き出しの途中でほかの画面に移ったので、やめました。もう一度「動画を書き出す」を押してください（終わるまで画面を開いたままにしてください）。'); return; }
   if (cancelExport){ msg('書き出しをやめました。'); return; }
+  if (failed || !chunks.length){ msg('書き出しがうまくいきませんでした。もう一度「動画を書き出す」を押してください。'); return; }
   const type = mime.split(';')[0];
   lastBlob = new Blob(chunks, {type});
   lastExt = type.includes('mp4') ? 'mp4' : 'webm';
@@ -2096,6 +2118,27 @@ async function exportVideo(){
   $('resultVideo').src = url;
   $('result').style.display = 'block';
   offerSave(lastBlob, lastExt);
+}
+// 書き出しは画面に描いたものをそのまま録るので、画面が消えたりアプリを離れたりすると絵が止まったまま録れてしまう。
+// 書き出し中は画面を消さないようにし、それでも離れたらやめる（2026-10-08）
+let exportLost = false, wakeLock = null;
+async function keepAwake(on){
+  try {
+    if (on && navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen');
+    else if (!on && wakeLock){ const w = wakeLock; wakeLock = null; await w.release(); }
+  } catch(e){}
+}
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden || !exporting) return;
+  exportLost = true; video.pause();
+  if (recorder && recorder.state !== 'inactive') recorder.stop();
+});
+// 書き出し中は作り方のタブと手順1〜3（＋透かしのチェック）を触れなくする。やめるボタンは手順4にあるので残る
+function lockEdit(on){
+  document.querySelectorAll('.modeTabs, section.step:not(.fb)').forEach(el => {
+    if (!el.contains($('exportBtn'))) el.inert = on;
+  });
+  ['playBtn','seek','autoSub','addSub','exportBtn','setIn','setOut','trimIn','trimOut','trimReset','keepLogo'].forEach(id => $(id).disabled = on);
 }
 
 // iPhoneアプリの箱（Capacitor）の中か。プラグインの JS は入れていないので直接呼ぶ
@@ -2125,14 +2168,18 @@ async function shopCall(m, o){
   return full();
 }
 function shopMonth(){ const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2, '0'); }
-function shopUsed(){
-  try { const q = JSON.parse(localStorage.getItem(SHOP.KEY)) || {}; return q.ym === shopMonth() ? (q.n|0) : 0; } catch(e){ return 0; }
+// 無料の本数は「動画ごと」に数える。同じ動画なら字幕を直して何度書き出しても1本（2026-10-08 佳澄さん）
+function shopQuota(){
+  try { const q = JSON.parse(localStorage.getItem(SHOP.KEY)) || {}; return q.ym === shopMonth() ? {n: q.n|0, keys: q.keys || []} : {n:0, keys:[]}; } catch(e){ return {n:0, keys:[]}; }
 }
+function shopUsed(){ return shopQuota().n; }
 function shopLeft(){ return Math.max(0, SHOP.FREE - shopUsed()); }
-function shopCanExport(){ return SHOP.mode === 'web' || fullVersion || shopLeft() > 0; }
+const shopCounted = () => !!mediaKey && shopQuota().keys.includes(mediaKey);
+function shopCanExport(){ return SHOP.mode === 'web' || fullVersion || shopLeft() > 0 || shopCounted(); }
 function shopCount(){
-  if (SHOP.mode === 'web' || fullVersion) return;
-  try { localStorage.setItem(SHOP.KEY, JSON.stringify({ym: shopMonth(), n: shopUsed() + 1})); } catch(e){}
+  if (SHOP.mode === 'web' || fullVersion || shopCounted()) return;
+  const q = shopQuota();
+  try { localStorage.setItem(SHOP.KEY, JSON.stringify({ym: shopMonth(), n: q.n + 1, keys: q.keys.concat(mediaKey).slice(-20)})); } catch(e){}
   shopPaint();
 }
 function shopPaint(){
@@ -2141,7 +2188,7 @@ function shopPaint(){
   $('planBtn').style.display = fullVersion ? 'none' : '';
   $('keepLogoRow').hidden = !fullVersion; $('keepLogo').checked = keepLogo;
   $('planNote').textContent = fullVersion ? '完全版です。何本でも作れます。'
-    : shopLeft() ? '無料版：今月はあと ' + shopLeft() + ' 本作れます（月' + SHOP.FREE + '本まで）'
+    : shopLeft() ? '無料版：今月はあと ' + shopLeft() + ' 本作れます（月' + SHOP.FREE + '本まで。同じ動画の作り直しは数えません）'
     : '無料版：今月の ' + SHOP.FREE + ' 本を作り終えました。来月1日になると、また作れます。';
 }
 function shopSet(st){ fullVersion = !!(st && st.full); shopPaint(); }
@@ -2212,10 +2259,18 @@ const blobB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.o
 // アプリ：一時フォルダに書き出して共有メニューへ（「ビデオを保存」・LINE・インスタなど）
 async function nativeShare(blob, ext){
   const fs = (m, o) => cap.nativePromise('Filesystem', m, {directory:'CACHE', ...o});
-  try { for (const f of (await fs('readdir', {path:''})).files) if (/^(koedake|papetalk)-.*\.(mp4|webm)$/.test(f.name)) await fs('deleteFile', {path:f.name}); } catch(e){}  // 前の動画は片づける
-  const name = fileName(ext), CH = 3*1024*1024;  // 3の倍数で区切ると、つなげても正しい base64 になる
-  for (let i=0;i<blob.size;i+=CH) await fs(i ? 'appendFile' : 'writeFile', {path:name, data: await blobB64(blob.slice(i, i+CH))});
-  const {uri} = await fs('getUri', {path:name});
+  let uri;
+  try {
+    try { for (const f of (await fs('readdir', {path:''})).files) if (/^(koedake|papetalk)-.*\.(mp4|webm)$/.test(f.name)) await fs('deleteFile', {path:f.name}); } catch(e){}  // 前の動画は片づける
+    const name = fileName(ext), CH = 3*1024*1024;  // 3の倍数で区切ると、つなげても正しい base64 になる
+    for (let i=0;i<blob.size;i+=CH) await fs(i ? 'appendFile' : 'writeFile', {path:name, data: await blobB64(blob.slice(i, i+CH))});
+    uri = (await fs('getUri', {path:name})).uri;
+  } catch(e){
+    // 端末の空きが足りないときなど。何も起きないままにしない（2026-10-08）
+    console.error(e);
+    msg('動画はできましたが、保存の準備がうまくいきませんでした。端末の空きを確かめてから「保存・送る」を押してください。');
+    return;
+  }
   try { await cap.nativePromise('Share', 'share', {files:[uri]}); } catch(e){}  // 共有メニューを閉じたときもここに来る
 }
 // 同じ日に何本作っても名前がぶつからないよう、日本の日付＋時刻（秒まで）を付ける。例：koedake-20260924-141530.mp4
