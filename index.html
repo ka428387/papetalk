@@ -1062,7 +1062,7 @@ function drawObake2(c){
    話す⇔だまるではポーズを 2.5 秒は保つ・話し続けているときのポーズ替えは 8 秒ごと（佳澄さん「動き忙しない」） */
 const KU_P = window.KUMA_POSES;
 const KU_MOODS = { quiet:['quiet_1'], talk:['talk_1','talk_2','talk_3'], happy:['happy_1','happy_2'], smile:[] };
-const KU_SIZE = 0.26;                  // 頭の幅（KU_HEAD_W）＝画面の幅の 26%。おばけと同じ高さになる大きさ（2026-10-08 佳澄さん「おばけちゃんと同じ大きさに」。前は 48%）
+const KU_SIZE = 0.35;                  // 頭の幅（KU_HEAD_W）＝画面の幅の 35%。目の大きさがおばけと同じになる大きさ（2026-10-08 佳澄さん。48% → 26%（背の高さをそろえた）→ 35%）
 const KU_HEAD_W = 360;                 // ポーズの絵（60% に縮めたもの）でのおおよその頭の幅
 const KU_BASE_Y = OB2_BASE_Y;          // 足もとの位置（おばけの体の底と同じ）
 const KU_MUZZLE_W = 133, KU_EYE_DY = -71, KU_MOUTH_SCALE = 0.8;  // 目と口のパーツは口まわりの幅 133px の体に合わせた大きさ
